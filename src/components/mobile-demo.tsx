@@ -26,8 +26,16 @@ export function MobileDemo({ initial }: { initial: PatientState }) {
 
   return (
     <div className="stage">
-      <div className="stage-label">
-        iOS · Abridge mobile — BoardX in the bottom tab bar
+      <div className="patient-bar">
+        <span className="who">
+          {surname(state)} <span className="age">{state.patient.age}F</span>
+        </span>
+        <span className="pill amber">Boarding {boardingDuration(state)}</span>
+        <span className="pill">{state.patient.edBed}</span>
+        <span className="pill">{state.patient.service} · COVID isolation</span>
+        <span className="pill">
+          <i className="ti ti-stethoscope" /> {state.patient.attending}
+        </span>
         <Link href="/" className="stage-link">
           Desktop view →
         </Link>

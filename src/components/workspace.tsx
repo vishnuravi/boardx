@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { boardingDuration } from "@/lib/evaluator";
 import type { PatientState } from "@/lib/types";
 import { BoardXRail, useBoardX } from "./boardx-rail";
 
@@ -27,8 +28,21 @@ export function Workspace({ initial }: { initial: PatientState }) {
 
   return (
     <div className="stage">
-      <div className="stage-label">
-        Desktop · notes.abridge.com — BoardX as a third rail tab (tabs are clickable)
+      {/*
+        Patient identity lives in the chrome, not in the panel. It is true for
+        the whole surface, so repeating it inside the BoardX rail was both
+        duplication and density the rail could not afford.
+      */}
+      <div className="patient-bar">
+        <span className="who">
+          {surname(state)} <span className="age">{state.patient.age}F</span>
+        </span>
+        <span className="pill amber">Boarding {boardingDuration(state)}</span>
+        <span className="pill">{state.patient.edBed}</span>
+        <span className="pill">{state.patient.service} · COVID isolation</span>
+        <span className="pill">
+          <i className="ti ti-stethoscope" /> {state.patient.attending}
+        </span>
         <Link href="/mobile" className="stage-link">
           iOS view →
         </Link>
@@ -105,6 +119,11 @@ export function Workspace({ initial }: { initial: PatientState }) {
   );
 }
 
+
+function surname(state: PatientState) {
+  const [first, last] = state.patient.name.split(" ");
+  return `${last}, ${first}`;
+}
 
 function NotePanel({ state }: { state: PatientState }) {
   const { note } = state;

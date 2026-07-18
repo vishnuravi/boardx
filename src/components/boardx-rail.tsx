@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { boardingDuration, formatTime } from "@/lib/evaluator";
+import { formatTime } from "@/lib/evaluator";
 import type { ActionDraft, PatientState, SafetySignal } from "@/lib/types";
 import { EvidenceDrawer } from "./evidence-drawer";
 
@@ -95,145 +95,130 @@ export function BoardXRail({
   const [drawerFor, setDrawerFor] = useState<string[] | null>(null);
   const [editing, setEditing] = useState(false);
 
+  const open = state.signals.filter((s) => s.status === "needs-review");
+  const settled = state.signals.filter((s) => s.status !== "needs-review");
+
+  const renderSignal = (signal: SafetySignal) => {
+    const draft = state.drafts.find((d) => d.signalId === signal.id);
+    const decided = signal.status !== "needs-review";
+    return (
+      <div
+        className={`bx-signal${signal.priority === "high" ? " high" : ""}${
+          signal.action === "acknowledge" ? " escalation" : ""
+        }`}
+        key={signal.id}
+      >
+        <div className="bx-signal-h">
+          <i className={`ti ti-${decided ? "circle-check" : signal.action === "acknowledge" ? "activity-heartbeat" : "alert-triangle"}`} />
+          {decided
+            ? statusLabel(signal.status)
+            : signal.action === "acknowledge"
+              ? signal.headline
+              : signal.priority === "high"
+                ? "High-priority clinician review"
+                : "Needs clinician review"}
+          <time>{formatTime(signal.createdAt)}</time>
+        </div>
+        <div className="bx-signal-b">
+          <p>{signal.explanation}</p>
+
+          <div className="bx-ev">
+            {signal.evidence.map((id) => {
+              const ref = state.evidence[id];
+              if (!ref) return null;
+              return (
+                <span
+                  key={id}
+                  className={id === "labs-repeat" ? "hot" : undefined}
+                  onClick={() => setDrawerFor(signal.evidence)}
+                  style={{ cursor: "pointer" }}
+                >
+                  {ref.source === "abridge" && <i className="ti ti-microphone" />}
+                  {ref.shortLabel} {formatTime(ref.timestamp)}
+                </span>
+              );
+            })}
+          </div>
+
+          {signal.action === "acknowledge" && !decided && (
+            <div className="bx-actions">
+              <button
+                className="pill-dark"
+                disabled={busy}
+                onClick={() => acknowledge(signal.id)}
+              >
+                Acknowledge
+              </button>
+              <span className="bx-nonprescriptive">
+                Reports the change only. No cause named, no imaging suggested.
+              </span>
+            </div>
+          )}
+
+          {signal.action === "acknowledge" && decided && (
+            <p className="bx-sent">
+              <i className="ti ti-check" /> Acknowledged by {state.patient.attending} ·{" "}
+              {state.patient.service} · CTA chest ordered at 04:39
+            </p>
+          )}
+
+          {draft && (
+            <DraftBlock
+              draft={draft}
+              settled={decided}
+              editing={editing}
+              setEditing={setEditing}
+              busy={busy}
+              onDecide={decide}
+            />
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="rail-scroll">
-      <div className="bx-context">
-        <span className="name">
-          {surname(state)} · {state.patient.age}F
-        </span>
-        <span className="bx-chip amber">Boarding {boardingDuration(state)}</span>
-        <span className="bx-chip">{state.patient.service} · COVID isolation</span>
-        <span className="bx-chip">{state.patient.edBed}</span>
-        <span className="bx-chip">
-          <i className="ti ti-stethoscope" /> {state.patient.attending}
-        </span>
-      </div>
-
       <DemoStepper actions={actions} />
+
+      {/*
+        Anything awaiting a decision sits above the story. The brief is context
+        for the card, not a preamble to scroll past when something needs you.
+      */}
+      {open.map(renderSignal)}
 
       <BoardingBrief state={state} />
 
-      {state.signals.map((signal) => {
-        const draft = state.drafts.find((d) => d.signalId === signal.id);
-        const settled = signal.status !== "needs-review";
-        return (
-          <div
-            className={`bx-signal${signal.priority === "high" ? " high" : ""}${
-              signal.action === "acknowledge" ? " escalation" : ""
-            }`}
-            key={signal.id}
-          >
-            <div className="bx-signal-h">
-              <i className={`ti ti-${settled ? "circle-check" : signal.action === "acknowledge" ? "activity-heartbeat" : "alert-triangle"}`} />
-              {settled
-                ? statusLabel(signal.status)
-                : signal.action === "acknowledge"
-                  ? signal.headline
-                  : signal.priority === "high"
-                    ? "High-priority clinician review"
-                    : "Needs clinician review"}
-              <time>{formatTime(signal.createdAt)}</time>
-            </div>
-            <div className="bx-signal-b">
-              <p>{signal.explanation}</p>
-
-              <div className="bx-ev">
-                {signal.evidence.map((id) => {
-                  const ref = state.evidence[id];
-                  if (!ref) return null;
-                  return (
-                    <span
-                      key={id}
-                      className={id === "labs-repeat" ? "hot" : undefined}
-                      onClick={() => setDrawerFor(signal.evidence)}
-                      style={{ cursor: "pointer" }}
-                    >
-                      {ref.source === "abridge" && <i className="ti ti-microphone" />}
-                      {ref.shortLabel} {formatTime(ref.timestamp)}
-                    </span>
-                  );
-                })}
-              </div>
-
-              {signal.action === "acknowledge" && !settled && (
-                <div className="bx-actions">
-                  <button
-                    className="pill-dark"
-                    disabled={busy}
-                    onClick={() => acknowledge(signal.id)}
-                  >
-                    Acknowledge
-                  </button>
-                  <span className="bx-nonprescriptive">
-                    Reports the change only. No cause named, no imaging suggested.
-                  </span>
-                </div>
-              )}
-
-              {signal.action === "acknowledge" && settled && (
-                <p className="bx-sent">
-                  <i className="ti ti-check" /> Acknowledged by {state.patient.attending} ·{" "}
-                  {state.patient.service} · CTA chest ordered at 04:39
-                </p>
-              )}
-
-              {draft && (
-                <DraftBlock
-                  draft={draft}
-                  settled={settled}
-                  editing={editing}
-                  setEditing={setEditing}
-                  busy={busy}
-                  onDecide={decide}
-                />
-              )}
-            </div>
-          </div>
-        );
-      })}
+      {settled.map(renderSignal)}
 
       {/*
-        What approval produces. Until a clinician approves, neither of these
-        exists — the message has no destination and the handoff still says the
-        panel is pending. They are the closed loop made visible.
+        What approval produced, as one block rather than two stacked cards: the
+        message that went out and the handoff it rewrote.
       */}
       {state.drafts
         .filter((d) => d.decision === "approved")
         .map((d) => (
-          <div className="bx-thread" key={`sent-${d.id}`}>
-            <div className="h">
-              <i className="ti ti-message" /> Secure Chat · {d.recipient}
-              <time>{formatTime(d.decidedAt ?? state.now)}</time>
+          <div className="bx-outcome" key={`sent-${d.id}`}>
+            <div className="lbl">
+              <i className="ti ti-check" /> Sent to {d.recipient} · {formatTime(d.decidedAt ?? state.now)}
             </div>
-            <div className="b">
-              <div className="msg">{d.message}</div>
-              <div className="meta">
-                <i className="ti ti-check" /> Delivered · sent by you from BoardX
+            <div className="msg">{d.message}</div>
+            {state.handoffUpdatedAt && (
+              <div className="handoff">
+                <span className="k">Handoff updated</span>
+                {state.handoff}
               </div>
-            </div>
+            )}
           </div>
         ))}
 
-      {state.handoffUpdatedAt && (
-        <div className="bx-handoff">
-          <div className="lbl">
-            <i className="ti ti-arrow-right" /> Transition-ready handoff · updated{" "}
-            {formatTime(state.handoffUpdatedAt)}
-          </div>
-          <p>{state.handoff}</p>
-        </div>
-      )}
-
       {state.suppressed.map((s) => (
-        <div className="bx-suppressed" key={s.id}>
+        <p className="bx-quiet" key={s.id}>
           <i className="ti ti-circle-check" />
-          <div>
-            <div className="t1">
-              Suppressed · {s.finding} · {formatTime(s.createdAt)}
-            </div>
-            <div className="t2">{s.reason}</div>
-          </div>
-        </div>
+          <span>
+            <b>Checked, not raised</b> · {formatTime(s.createdAt)} {s.finding} — {s.reason}
+          </span>
+        </p>
       ))}
 
       {drawerFor && (
@@ -326,22 +311,8 @@ function BoardingBrief({ state }: { state: PatientState }) {
         <i className="ti ti-notes" /> Live boarding brief
       </div>
       <dl>
-        <dt>Accepting service</dt>
-        <dd>
-          {state.patient.service} · {state.patient.attending}
-        </dd>
-
         <dt>Why admitted</dt>
         <dd>{intent.reasonForAdmission}</dd>
-
-        <dt>Current plan</dt>
-        <dd>
-          <ul>
-            {intent.plan.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </dd>
 
         <dt>Since last review</dt>
         <dd className={open.length > 0 ? "changed" : undefined}>{sinceLastReview}</dd>
@@ -350,8 +321,10 @@ function BoardingBrief({ state }: { state: PatientState }) {
         <dd>
           {/* The Open-Loop Finder's output once it has run; the admission
               plan's pending list until then. */}
-          {(state.openLoops.length > 0 ? state.openLoops : intent.pendingItems).join("; ") ||
-            "None outstanding"}
+          {/* Capped: the brief is a glance, not a list. */}
+          {(state.openLoops.length > 0 ? state.openLoops : intent.pendingItems)
+            .slice(0, 3)
+            .join(" · ") || "None outstanding"}
         </dd>
       </dl>
     </div>
@@ -579,7 +552,7 @@ export function BoardXMobile({
           <i className="ti ti-circle-check" style={{ fontSize: 20, color: "var(--green)" }} />
           <div>
             <div style={{ fontSize: 13.5, fontWeight: 600 }}>
-              Suppressed · {s.finding} · {formatTime(s.createdAt)}
+              Checked, not raised · {formatTime(s.createdAt)} · {s.finding}
             </div>
             <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 1 }}>
               Unchanged; flagged in renal plan
@@ -615,10 +588,6 @@ export function BoardXMobile({
   );
 }
 
-function surname(state: PatientState) {
-  const [first, last] = state.patient.name.split(" ");
-  return `${last}, ${first}`;
-}
 
 function statusLabel(status: SafetySignal["status"]): string {
   if (status === "acknowledged") return "Acknowledged · sent";

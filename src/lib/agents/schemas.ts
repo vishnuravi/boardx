@@ -39,7 +39,12 @@ export const openLoopSchema = z.object({
   loops: z
     .array(
       z.object({
-        description: z.string().describe("The unresolved item, stated plainly."),
+        description: z
+          .string()
+          .describe(
+            "The unresolved item as a short noun phrase, under ten words. " +
+              "'Isolation bed not yet assigned', not a sentence explaining it.",
+          ),
         acknowledged: z.boolean().describe("Whether the chart shows it was addressed."),
         evidence: z.array(z.string()),
       }),

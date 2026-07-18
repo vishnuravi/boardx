@@ -648,3 +648,67 @@ body { padding: 0; overflow: hidden; background: var(--cream); }
 /* Mobile: same row, tighter. */
 .m-scroll .bx-stepper { padding: 8px 12px; margin-bottom: 14px; }
 .m-scroll .bx-stepper .state { font-size: 12px; }
+
+/* ============ PATIENT TOOLBAR ============
+   Who this is, stated once, in the chrome. It is true for the whole surface, so
+   the BoardX rail no longer repeats it and gets the space back for the thing
+   that changed and the decision it needs. */
+
+.patient-bar {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 9px 20px;
+  background: var(--cream); border-bottom: 1px solid var(--line);
+}
+.patient-bar .who { font-size: 15px; font-weight: 600; margin-right: 4px; }
+.patient-bar .who .age { font-weight: 400; color: var(--ink-2); }
+.patient-bar .pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12.5px; padding: 4px 11px; border-radius: 999px;
+  background: var(--cream-2); color: var(--ink-2);
+}
+.patient-bar .pill.amber { background: var(--amber-bg); color: var(--amber-ink); }
+.patient-bar .pill i { font-size: 13px; }
+.patient-bar .stage-link { margin-left: auto; }
+
+/* ============ DENSITY ============
+   The rail holds what changed and what to do about it. Everything else is
+   compressed to a line or folded into the block it belongs to. */
+
+/* One outcome block instead of a sent-thread card plus a handoff card. */
+.bx-outcome {
+  background: #fdfcfa; border: 1px solid var(--line); border-radius: 14px;
+  padding: 14px 18px; margin-bottom: 16px;
+}
+.bx-outcome .lbl {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 8px;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--green);
+}
+.bx-outcome .msg {
+  background: var(--blue); color: #fff; border-radius: 12px 12px 3px 12px;
+  padding: 11px 14px; font-size: 14px; line-height: 1.5;
+}
+.bx-outcome .handoff {
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line);
+  font-size: 13.5px; line-height: 1.55; color: var(--ink-2);
+}
+.bx-outcome .handoff .k {
+  display: block; margin-bottom: 3px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Considered-and-declined, as one quiet line. */
+.bx-quiet {
+  display: flex; align-items: flex-start; gap: 7px;
+  font-size: 12.5px; line-height: 1.5; color: var(--ink-3);
+  padding: 2px 2px 0;
+}
+.bx-quiet i { font-size: 14px; color: var(--green); flex-shrink: 0; margin-top: 1px; }
+.bx-quiet b { font-weight: 600; color: var(--ink-2); }
+
+/* Brief: three tight rows, no plan list. */
+.bx-brief { padding: 14px 18px; margin-bottom: 16px; }
+.bx-brief .lbl { margin-bottom: 10px; }
+.bx-brief dd { margin-bottom: 10px; font-size: 14px; }

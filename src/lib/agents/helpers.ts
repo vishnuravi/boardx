@@ -119,7 +119,11 @@ recommendations without a response, plan items with no corresponding order,
 acknowledged findings with no follow-through.
 
 Only report a loop if the chart shows it is genuinely unresolved. If the timeline
-shows it was addressed, mark acknowledged true. Report nothing rather than padding.`,
+shows it was addressed, mark acknowledged true. Report nothing rather than padding.
+
+These render in a one-line field beside three others. Each description must be a
+short noun phrase under ten words — no sentences, no explanation, no citations.
+Report at most three.`,
     prompt: `${renderPatientContext(state)}
 
 What loops are still open for this patient?`,
