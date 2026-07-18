@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6f7f9;
+  --surface: #ffffff;
+  --foreground: #14181f;
+  --muted: #5c6673;
+  --border: #e2e6eb;
+  --accent: #1f5fa9;
+  --review: #b45309;
+  --review-surface: #fffbeb;
+  --resolved: #15803d;
+  --resolved-surface: #f0fdf4;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-line: var(--border);
+  --color-accent: var(--accent);
+  --color-review: var(--review);
+  --color-review-surface: var(--review-surface);
+  --color-resolved: var(--resolved);
+  --color-resolved-surface: var(--resolved-surface);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Timestamps and identifiers read as data, not prose. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}

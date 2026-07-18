@@ -67,6 +67,8 @@ That's the whole demo loop — and it's more useful than an "abnormal CT" alert 
 - **Data** — synthetic FHIR-shaped fixtures plus a simulated Abridge encounter artifact
 - **AI** — structured-output calls for change explanation and message drafting; deterministic gates for event type, timestamps, and active-order checks
 
+> **Current state:** the evaluator gates and draft generation are implemented deterministically. Swapping the *explanation* and *message* text for LLM structured-output calls is the next step — the gates stay as code so they remain testable and auditable.
+
 Core objects: `AdmissionIntent`, `ClinicalEvent`, `PatientState`, `SafetySignal`, `ActionDraft`. See [`planning/prototype-prd.md`](planning/prototype-prd.md) for field-level detail and build order.
 
 ## Getting started
@@ -74,9 +76,34 @@ Core objects: `AdmissionIntent`, `ClinicalEvent`, `PatientState`, `SafetySignal`
 ```bash
 git clone https://github.com/vishnuravi/boardx.git
 cd boardx
+npm install
+npm run dev
 ```
 
-No application code yet — setup instructions land here once the scaffold does.
+Open http://localhost:3000. The workspace loads Maria Chen mid-boarding with no
+material changes. Click **Post final CT result** to run the demo loop: the brief
+updates, a "needs clinician review" card appears with linked evidence, and you can
+edit and approve the drafted message to Medicine — which acknowledges the signal and
+refreshes the handoff. **Reset demo** returns to the starting state.
+
+### Layout
+
+```
+src/
+  app/
+    page.tsx              server-rendered workspace entry
+    api/patient/          GET state · DELETE reset
+    api/events/           POST a new chart event
+    api/drafts/[id]/      POST a clinician decision
+  components/             workspace, review card, evidence drawer
+  data/maria-chen.ts      synthetic fixtures for the hero scenario
+  lib/
+    types.ts              AdmissionIntent · ClinicalEvent · PatientState · SafetySignal · ActionDraft
+    evaluator.ts          rule registry, draft generation, handoff builder
+    store.ts              in-memory patient state (prototype only)
+```
+
+Adding a signal class means adding one rule to the registry in `lib/evaluator.ts`.
 
 ## Roadmap
 
