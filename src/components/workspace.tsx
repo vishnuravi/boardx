@@ -15,7 +15,10 @@ import { boardingDuration } from "@/lib/evaluator";
  */
 export function Workspace({ initial }: { initial: PatientState }) {
   const [state, setState] = useState(initial);
-  const [rail, setRail] = useState<"ai" | "bx">("ai");
+  // Opens on BoardX. The mockup defaults to Abridge AI to show BoardX as an
+  // addition to an existing surface; the running app opens on the tab being
+  // demoed, and Abridge AI stays one click away as the "before" state.
+  const [rail, setRail] = useState<"ai" | "bx">("bx");
   const [mobileTab, setMobileTab] = useState<"note" | "bx">("note");
 
   // One action surface for both views, so their busy states cannot diverge.
