@@ -46,7 +46,10 @@ export function Workspace({ initial }: { initial: PatientState }) {
         <span className="pill viewer">
           <i className="ti ti-user" /> You: ED attending
         </span>
-        <Link href="/mobile" className="stage-link">
+        <Link href="/board" className="stage-link">
+          ← Trackboard
+        </Link>
+        <Link href="/mobile" className="stage-link alt">
           iOS view →
         </Link>
       </div>

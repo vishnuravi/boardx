@@ -38,7 +38,10 @@ export function MobileDemo({ initial }: { initial: PatientState }) {
         <span className="pill viewer">
           <i className="ti ti-user" /> You: ED attending
         </span>
-        <Link href="/" className="stage-link">
+        <Link href="/board" className="stage-link">
+          ← Trackboard
+        </Link>
+        <Link href="/" className="stage-link alt">
           Desktop view →
         </Link>
       </div>

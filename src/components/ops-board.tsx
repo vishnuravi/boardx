@@ -1,7 +1,25 @@
 import Link from "next/link";
 import { news2, type News2Result } from "@/lib/acuity";
 import { SideRail } from "@/components/side-rail";
+import { WORKSPACE_PATIENT_ID } from "@/data/ariane-runolfsson";
 import type { Boarder, NursingTask } from "@/lib/types";
+
+/**
+ * A patient's name in the census.
+ *
+ * Only Ariane has a workspace behind her, so only her row navigates. The rest
+ * render as text: a link that opened somebody else's chart would be a worse
+ * failure than a row that does not move.
+ */
+function BoarderName({ boarder }: { boarder: Boarder }) {
+  if (boarder.id !== WORKSPACE_PATIENT_ID) return <>{boarder.name}</>;
+  return (
+    <Link href="/" className="ops-open" title={`Open ${boarder.name}'s workspace`}>
+      {boarder.name}
+      <i className="ti ti-arrow-right" />
+    </Link>
+  );
+}
 
 /**
  * Operations trackboard — every boarded patient, prioritized for review.
@@ -340,7 +358,7 @@ function TaskRow({
         {task.reason && <div className="ops-dim">{task.reason}</div>}
       </td>
       <td>
-        <div>{b.name}</div>
+        <div><BoarderName boarder={b} /></div>
         <div className="ops-dim">
           {b.age} {b.sex} · {b.edBed}
           {b.isolation ? " · isolation" : ""}
@@ -370,7 +388,7 @@ function BoarderRow({ row, rank }: { row: Row; rank: number }) {
     <tr>
       <td className="num">{rank}</td>
       <td>
-        <div className="ops-name">{b.name}</div>
+        <div className="ops-name"><BoarderName boarder={b} /></div>
         <div className="ops-dim">
           {b.age} {b.sex} · {b.edBed}
           {b.isolation ? " · isolation" : ""}

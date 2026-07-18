@@ -902,3 +902,16 @@ a.vert-link.on { color: var(--ink); }
 .bx-autosent .ack i { color: var(--green); }
 .bx-autosent .pending { color: var(--amber-ink); }
 .bx-autosent .pending i { color: var(--amber-ink); }
+
+/* A census row that opens a workspace. Only Ariane has one, so the affordance
+   appears on exactly one row — the arrow is what distinguishes a name you can
+   follow from a name that is only a name. */
+.ops-open {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: var(--blue); text-decoration: none; font-weight: 500;
+}
+.ops-open i { font-size: 13px; opacity: 0; transition: opacity 0.12s, transform 0.12s; transform: translateX(-2px); }
+.ops-open:hover { text-decoration: underline; }
+.ops-open:hover i { opacity: 1; transform: translateX(0); }
+.ops-table tbody tr:hover .ops-open i { opacity: 0.6; transform: translateX(0); }
+.patient-bar .stage-link.alt { margin-left: 0; }
