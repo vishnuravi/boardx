@@ -265,6 +265,25 @@ function runRoutingGate() {
   );
 }
 
+// --------------------------------------------- STATIC — notification status
+
+function runNotificationStatus() {
+  console.log("\nSTATIC — auto-sent notifications settle themselves\n");
+
+  const escalation = evaluateEvent(escalationEvent, initialPatientState()).signals[0];
+  const pe = evaluateEvent(ctaResultEvent, stateAtCta()).signals[0];
+  const heparin = evaluateEvent(heparinOrderEvent, stateAtCta()).signals[0];
+
+  // An auto-sent notification asks nothing of the reader, so it must not sit in
+  // the pane demanding a decision — that is what lets the UI collapse it once
+  // the next event lands.
+  check("the hypoxemia notification is born settled", escalation?.status === "acknowledged");
+  check("the PE result notification is born settled", pe?.status === "acknowledged");
+
+  // The one card that does need the ED attending must not settle itself.
+  check("the heparin routing gap stays open", heparin?.status === "needs-review");
+}
+
 // ------------------------------------------------------------------ LIVE tier
 
 /** Abnormal but fully expected in COVID-19 — not a divergence. */
@@ -362,6 +381,7 @@ async function main() {
   runEscalationGate();
   runPeGate();
   runRoutingGate();
+  runNotificationStatus();
 
   if (process.env.ANTHROPIC_API_KEY) {
     await runLive(state);

@@ -114,7 +114,8 @@ const respiratoryEscalation: Rule = {
         headline: "Hypoxemia progressing — Medicine notified",
         explanation,
         evidence: ["vitals-baseline", "vitals-interim", "vitals-escalation", "abridge-admission"],
-        status: "needs-review",
+        // Delivered, not pending: nothing is being asked of the reader.
+        status: "acknowledged",
         confidence: "high",
         triggeringEventId: event.id,
         createdAt: event.timestamp,
@@ -188,7 +189,7 @@ const finalImagingPeWithoutManagement: Rule = {
           "escalation-ack",
           "labs-admission",
         ],
-        status: "needs-review",
+        status: "acknowledged",
         confidence: "high",
         triggeringEventId: event.id,
         createdAt: event.timestamp,

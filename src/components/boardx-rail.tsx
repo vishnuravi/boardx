@@ -107,6 +107,43 @@ export function BoardXRail({
   const open = state.signals.filter((s) => s.status === "needs-review");
   const settled = state.signals.filter((s) => s.status !== "needs-review");
 
+  /**
+   * Once the next event lands, a settled notification is history. It collapses
+   * to one line so the pane keeps showing the thing that needs a decision
+   * rather than a growing stack of what already got one. Still openable — the
+   * evidence and the delivery receipt are the point of keeping it at all.
+   */
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const latestId = state.signals[state.signals.length - 1]?.id;
+  // The current event stays open; anything the demo has moved past folds away.
+  const isOpen = (id: string) => expanded[id] ?? id === latestId;
+  const toggle = (id: string) =>
+    setExpanded((prev) => ({ ...prev, [id]: !(prev[id] ?? false) }));
+
+  const renderCollapsed = (signal: SafetySignal) => {
+    const draft = state.drafts.find((d) => d.signalId === signal.id);
+    return (
+      <button
+        className="bx-collapsed"
+        key={signal.id}
+        onClick={() => toggle(signal.id)}
+        aria-expanded={false}
+      >
+        <i className="ti ti-circle-check" />
+        <span className="txt">
+          <b>{signal.headline}</b>
+          {draft?.acknowledgedBy && (
+            <span className="sub">
+              Acknowledged by {draft.acknowledgedBy} at {formatTime(draft.acknowledgedAt ?? "")}
+            </span>
+          )}
+        </span>
+        <time>{formatTime(signal.createdAt)}</time>
+        <i className="ti ti-chevron-down chev" />
+      </button>
+    );
+  };
+
   const renderSignal = (signal: SafetySignal) => {
     const draft = state.drafts.find((d) => d.signalId === signal.id);
     const decided = signal.status !== "needs-review";
@@ -190,6 +227,12 @@ export function BoardXRail({
             </p>
           )}
 
+          {decided && (
+            <button className="bx-collapse-back" onClick={() => toggle(signal.id)}>
+              <i className="ti ti-chevron-up" /> Collapse
+            </button>
+          )}
+
           {draft && !draft.autoSent && (
             <DraftBlock
               draft={draft}
@@ -217,7 +260,9 @@ export function BoardXRail({
 
       <BoardingBrief state={state} />
 
-      {settled.map(renderSignal)}
+      {settled.map((signal) =>
+        isOpen(signal.id) ? renderSignal(signal) : renderCollapsed(signal),
+      )}
 
       {/*
         What approval produced, as one block rather than two stacked cards: the
