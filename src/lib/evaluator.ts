@@ -12,12 +12,29 @@
  * suppression) stay as code so they are testable and auditable.
  */
 
-import type { ActionDraft, ClinicalEvent, PatientState, SafetySignal } from "./types";
+import type {
+  ActionDraft,
+  ClinicalEvent,
+  PatientState,
+  SafetySignal,
+  SuppressedSignal,
+} from "./types";
+
+/**
+ * A rule's verdict. The three cases are distinct on purpose:
+ *
+ *   `null`         — the rule does not apply to this event at all.
+ *   `{suppressed}` — the rule applies, evaluated, and decided not to raise it.
+ *   `{signal}`     — the rule fires.
+ *
+ * The middle case is what lets the UI show "considered and declined" rather
+ * than leaving the clinician to assume silence means nothing was checked.
+ */
+type RuleOutcome = { signal: SafetySignal } | { suppressed: SuppressedSignal } | null;
 
 type Rule = {
   id: string;
-  /** Returns a signal when the rule fires for this event, otherwise null. */
-  evaluate: (event: ClinicalEvent, state: PatientState) => SafetySignal | null;
+  evaluate: (event: ClinicalEvent, state: PatientState) => RuleOutcome;
 };
 
 const num = (v: unknown): number | null => (typeof v === "number" ? v : null);
@@ -77,32 +94,110 @@ const conditionalMedVsRenalFunction: Rule = {
     ].join(" ");
 
     return {
-      id: `sig-${event.id}`,
-      category: "plan-discrepancy",
-      headline: "Renal function has fallen below the condition the plan set for continuing lisinopril",
-      explanation,
-      evidence: ["abridge-admission", "note-renal-plan", "labs-admission", "labs-repeat", "orders-active"],
-      status: "needs-review",
-      confidence: "high",
-      triggeringEventId: event.id,
-      createdAt: event.timestamp,
+      signal: {
+        id: `sig-${event.id}`,
+        category: "plan-discrepancy",
+        headline:
+          "Renal function has fallen below the condition the plan set for continuing lisinopril",
+        explanation,
+        evidence: [
+          "abridge-admission",
+          "note-renal-plan",
+          "labs-admission",
+          "labs-repeat",
+          "orders-active",
+        ],
+        status: "needs-review",
+        confidence: "high",
+        triggeringEventId: event.id,
+        createdAt: event.timestamp,
+      },
     };
   },
 };
 
-const rules: Rule[] = [conditionalMedVsRenalFunction];
+/**
+ * Potassium above the reference range.
+ *
+ * This rule exists to *not* fire on this patient, and that is the point. A
+ * naive threshold check sees 5.07 mmol/L, calls it hyperkalemia, and raises a
+ * card. But the value is unchanged from admission and the admission plan
+ * already names potassium as something being followed — so it is neither new
+ * nor unacknowledged, and the Contextual Safety Watch criteria are not met.
+ *
+ * It fires only if potassium actually rises, or if the plan never addressed it.
+ */
+const potassiumAboveRange: Rule = {
+  id: "potassium-above-range",
+  evaluate: (event, state) => {
+    if (event.type !== "lab") return null;
+
+    const potassium = num(event.data?.potassium);
+    if (potassium === null || potassium <= 5.0) return null;
+
+    const priorId = event.data?.supersedesEventId as string | undefined;
+    const priorPotassium = num(
+      state.events.find((e) => e.id === priorId)?.data?.potassium,
+    );
+
+    const rising = priorPotassium !== null && potassium > priorPotassium;
+    const addressedInPlan = state.admissionIntent.plan.some((item) =>
+      /potassium|renal function/i.test(item),
+    );
+
+    if (rising || !addressedInPlan) {
+      return {
+        signal: {
+          id: `sig-k-${event.id}`,
+          category: "critical-lab",
+          headline: "Potassium above reference range",
+          explanation:
+            `Potassium is ${potassium.toFixed(2)} mmol/L` +
+            (priorPotassium !== null ? ` (prior ${priorPotassium.toFixed(2)})` : "") +
+            `. This is not addressed in the current admission plan.`,
+          evidence: ["labs-repeat", "note-renal-plan"],
+          status: "needs-review",
+          confidence: "medium",
+          triggeringEventId: event.id,
+          createdAt: event.timestamp,
+        },
+      };
+    }
+
+    return {
+      suppressed: {
+        id: `sup-k-${event.id}`,
+        ruleId: "potassium-above-range",
+        finding: `potassium ${potassium.toFixed(2)}`,
+        reason: "Unchanged from admission; already flagged in the renal plan",
+        evidence: ["labs-admission", "labs-repeat", "note-renal-plan"],
+        createdAt: event.timestamp,
+      },
+    };
+  },
+};
+
+const rules: Rule[] = [conditionalMedVsRenalFunction, potassiumAboveRange];
 
 /**
- * Runs every rule against a newly posted event, suppressing signals that
- * already exist for it (a signal should not re-fire on re-render or replay).
+ * Runs every rule against a newly posted event, skipping events that already
+ * have a signal (a rule should not re-fire on re-render or replay).
  */
-export function evaluateEvent(event: ClinicalEvent, state: PatientState): SafetySignal[] {
+export function evaluateEvent(
+  event: ClinicalEvent,
+  state: PatientState,
+): { signals: SafetySignal[]; suppressed: SuppressedSignal[] } {
   const existing = new Set(state.signals.map((s) => s.triggeringEventId));
-  if (existing.has(event.id)) return [];
+  if (existing.has(event.id)) return { signals: [], suppressed: [] };
 
-  return rules
+  const outcomes = rules
     .map((rule) => rule.evaluate(event, state))
-    .filter((s): s is SafetySignal => s !== null);
+    .filter((o): o is NonNullable<RuleOutcome> => o !== null);
+
+  return {
+    signals: outcomes.flatMap((o) => ("signal" in o ? [o.signal] : [])),
+    suppressed: outcomes.flatMap((o) => ("suppressed" in o ? [o.suppressed] : [])),
+  };
 }
 
 /**

@@ -36,6 +36,7 @@ export const evidence: Record<string, EvidenceRef> = {
   "abridge-admission": {
     id: "abridge-admission",
     label: "Abridge admission story",
+    shortLabel: "Admission story",
     source: "abridge",
     timestamp: at("23:45"),
     excerpt:
@@ -49,6 +50,7 @@ export const evidence: Record<string, EvidenceRef> = {
   "note-renal-plan": {
     id: "note-renal-plan",
     label: "Admission note — renal assessment and plan",
+    shortLabel: "Renal plan note",
     source: "abridge",
     timestamp: at("23:52"),
     excerpt:
@@ -60,6 +62,7 @@ export const evidence: Record<string, EvidenceRef> = {
   "labs-admission": {
     id: "labs-admission",
     label: "Admission metabolic panel",
+    shortLabel: "Admission CMP",
     source: "epic",
     timestamp: at("23:45"),
     excerpt:
@@ -69,6 +72,7 @@ export const evidence: Record<string, EvidenceRef> = {
   "labs-repeat": {
     id: "labs-repeat",
     label: "Repeat metabolic panel",
+    shortLabel: "Repeat CMP",
     source: "epic",
     timestamp: atNext("05:32"),
     excerpt:
@@ -78,6 +82,7 @@ export const evidence: Record<string, EvidenceRef> = {
   "orders-active": {
     id: "orders-active",
     label: "Active medication and order list",
+    shortLabel: "Active orders",
     source: "epic",
     timestamp: atNext("05:34"),
     excerpt:
@@ -184,12 +189,35 @@ export function initialPatientState(): PatientState {
       ],
       evidence: ["abridge-admission", "note-renal-plan", "labs-admission"],
     },
+    /** The Abridge note this boards alongside. Content from the source record. */
+    note: {
+      noteType: "Emergency Medicine Visit",
+      historyOfPresentIllness: [
+        "The patient is an 81 year old woman with hypertension and hyperlipidemia who presents " +
+          "with fever, cough, and worsening shortness of breath, found to be hypoxemic with " +
+          "COVID-19 pneumonia.",
+        "She has had two days of fever and poor oral intake at home. Family confirms her home " +
+          "medications from her pillbox.",
+        "Admission labs show acute renal impairment with creatinine 2.66 mg/dL and GFR 11.1 mL/min.",
+      ],
+      pastMedicalHistory: ["Hypertension", "Hyperlipidemia", "Scoliosis"],
+      medications: [
+        "Aspirin 81 mg daily",
+        "Atenolol 50 mg daily",
+        "Rosuvastatin 40 mg daily",
+        "Lisinopril 20 mg daily",
+      ],
+      results:
+        "CMP: creatinine 2.66 mg/dL, GFR 11.1 mL/min/1.73m², potassium 5.07 mmol/L, sodium 136.05, " +
+        "glucose 67.23. SARS-CoV-2 PCR positive.",
+    },
     // Deep-copy the seeded events. Spreading only the array would share the
     // event objects (and their `data`) across every call, so a caller that
     // mutates one — a test holding a medication, say — would silently corrupt
     // every state built afterwards.
     events: seededEvents.map((e) => ({ ...e, data: e.data ? { ...e.data } : undefined })),
     signals: [],
+    suppressed: [],
     drafts: [],
     evidence,
     handoff:

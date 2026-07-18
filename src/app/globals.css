@@ -1,48 +1,77 @@
 @import "tailwindcss";
 
+/**
+ * Design tokens lifted from planning/mockups/boardx-integration-mockups.html.
+ * BoardX renders inside Abridge's surfaces, so the palette is Abridge's — the
+ * only colour BoardX introduces is the signal red on the review card.
+ */
 :root {
-  --background: #f6f7f9;
-  --surface: #ffffff;
-  --foreground: #14181f;
-  --muted: #5c6673;
-  --border: #e2e6eb;
-  --accent: #1f5fa9;
-  --review: #b45309;
-  --review-surface: #fffbeb;
-  --resolved: #15803d;
-  --resolved-surface: #f0fdf4;
+  --cream: #f7f5f0;
+  --cream-2: #efece4;
+  --card: #ffffff;
+  --ink: #26251f;
+  --ink-2: #55534b;
+  --ink-3: #9b9891;
+  --line: #e6e3da;
+  --line-2: #d6d2c8;
+  --blue: #2e5ce8;
+  --abridge-red: #f04e23;
+  --dark: #1c1b18;
+  --sig-red: #b3261e;
+  --sig-red-bg: #faedeb;
+  --sig-red-line: #ecccc8;
+  --green: #1d7a4f;
+  --amber-bg: #f7eedc;
+  --amber-ink: #6b4a0a;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-surface: var(--surface);
-  --color-foreground: var(--foreground);
-  --color-muted: var(--muted);
-  --color-line: var(--border);
-  --color-accent: var(--accent);
-  --color-review: var(--review);
-  --color-review-surface: var(--review-surface);
-  --color-resolved: var(--resolved);
-  --color-resolved-surface: var(--resolved-surface);
+  --color-cream: var(--cream);
+  --color-cream-2: var(--cream-2);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-blue: var(--blue);
+  --color-abridge-red: var(--abridge-red);
+  --color-dark: var(--dark);
+  --color-sig-red: var(--sig-red);
+  --color-sig-red-bg: var(--sig-red-bg);
+  --color-sig-red-line: var(--sig-red-line);
+  --color-green: var(--green);
+  --color-amber-bg: var(--amber-bg);
+  --color-amber-ink: var(--amber-ink);
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #e9e7e1;
+  color: var(--ink);
+  letter-spacing: -0.011em;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Timestamps and identifiers read as data, not prose. */
-.tabular {
-  font-variant-numeric: tabular-nums;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+button {
+  font-family: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
 }
 
-.label {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Note-panel and mobile list items use a hyphen marker rather than a bullet. */
+.dash-list {
+  list-style: none;
+  padding: 0;
+}
+.dash-list li::before {
+  content: "-  ";
 }

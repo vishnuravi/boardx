@@ -41,10 +41,11 @@ export async function postRepeatPanel(): Promise<PatientState> {
   const s = state();
   if (s.events.some((e) => e.id === repeatPanelEvent.id)) return s;
 
-  const { signals, drafts, trace } = await orchestrateEvent(repeatPanelEvent, s);
+  const { signals, suppressed, drafts, trace } = await orchestrateEvent(repeatPanelEvent, s);
 
   s.events = [...s.events, repeatPanelEvent];
   s.signals = [...s.signals, ...signals];
+  s.suppressed = [...s.suppressed, ...suppressed];
   s.drafts = [...s.drafts, ...drafts];
   s.trace = trace;
   s.admissionIntent.pendingItems = s.admissionIntent.pendingItems.filter(

@@ -10,6 +10,8 @@
 export type EvidenceRef = {
   id: string;
   label: string;
+  /** Compact form for the inline evidence chips, which are space-constrained. */
+  shortLabel: string;
   source: "abridge" | "epic";
   /** ISO 8601. Rendered as wall-clock time in the UI. */
   timestamp: string;
@@ -68,6 +70,24 @@ export type SafetySignal = {
   createdAt: string;
 };
 
+/**
+ * A rule that evaluated and declined to fire.
+ *
+ * Surfacing these is a precision claim: it lets a clinician see that the system
+ * considered a finding and had a reason not to raise it, rather than inferring
+ * silence means it was never looked at.
+ */
+export type SuppressedSignal = {
+  id: string;
+  ruleId: string;
+  /** What was evaluated, e.g. "potassium 5.07". */
+  finding: string;
+  /** Why it did not fire, in the clinician's terms. */
+  reason: string;
+  evidence: string[];
+  createdAt: string;
+};
+
 export type ClinicianDecision = "pending" | "approved" | "dismissed" | "deferred";
 
 /** A drafted communication. Nothing leaves BoardX without an explicit approval. */
@@ -102,8 +122,18 @@ export type PatientState = {
     admissionDecisionAt: string;
   };
   admissionIntent: AdmissionIntent;
+  /** The Abridge clinical note this boards alongside, rendered in the note panel. */
+  note: {
+    noteType: string;
+    historyOfPresentIllness: string[];
+    pastMedicalHistory: string[];
+    medications: string[];
+    results: string;
+  };
   events: ClinicalEvent[];
   signals: SafetySignal[];
+  /** Rules that evaluated and declined. Shown beneath the fired signals. */
+  suppressed: SuppressedSignal[];
   drafts: ActionDraft[];
   evidence: Record<string, EvidenceRef>;
   /** Regenerated from current state whenever a loop closes. */

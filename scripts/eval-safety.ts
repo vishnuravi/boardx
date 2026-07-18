@@ -116,33 +116,67 @@ function alreadyHeldState(): PatientState {
 function runGates() {
   console.log("\nSTATIC — deterministic signal gates\n");
 
-  check(
-    "fires on worsening renal function with an active at-risk medication",
-    evaluateEvent(repeatPanelEvent, initialPatientState()).length === 1,
-  );
+  const base = evaluateEvent(repeatPanelEvent, initialPatientState());
+
+  check("fires on worsening renal function with an active at-risk medication", base.signals.length === 1);
 
   check(
     "does not fire when renal function is improving",
-    evaluateEvent(improvingPanel(), initialPatientState()).length === 0,
+    evaluateEvent(improvingPanel(), initialPatientState()).signals.length === 0,
   );
 
   check(
     "does not fire when the medication is already held",
-    evaluateEvent(repeatPanelEvent, alreadyHeldState()).length === 0,
+    evaluateEvent(repeatPanelEvent, alreadyHeldState()).signals.length === 0,
   );
 
   const dup = initialPatientState();
-  const first = evaluateEvent(repeatPanelEvent, dup);
-  dup.signals = first;
+  dup.signals = base.signals;
   check(
     "does not re-fire for an event that already has a signal",
-    evaluateEvent(repeatPanelEvent, dup).length === 0,
+    evaluateEvent(repeatPanelEvent, dup).signals.length === 0,
+  );
+
+  const state = initialPatientState();
+  check(
+    "every evidence ID on the generated signal resolves",
+    base.signals[0].evidence.every((id) => Boolean(state.evidence[id])),
+    `unresolved: ${base.signals[0].evidence.filter((id) => !state.evidence[id]).join(", ")}`,
+  );
+
+  // --- suppression path -----------------------------------------------------
+  // Potassium 5.07 is above range. A threshold check would raise it; the gate
+  // should decide it is neither new nor unacknowledged and decline instead.
+
+  check("suppresses unchanged potassium rather than firing", base.suppressed.length === 1);
+
+  check(
+    "the suppressed record names the finding and a reason",
+    base.suppressed[0]?.finding.includes("5.07") && base.suppressed[0].reason.length > 0,
   );
 
   check(
-    "every evidence ID on the generated signal resolves",
-    first[0].evidence.every((id) => Boolean(initialPatientState().evidence[id])),
-    `unresolved: ${first[0].evidence.filter((id) => !initialPatientState().evidence[id]).join(", ")}`,
+    "suppressed evidence IDs resolve",
+    base.suppressed[0]?.evidence.every((id) => Boolean(state.evidence[id])) ?? false,
+  );
+
+  // Rising potassium *should* fire — suppression must be conditional, not blanket.
+  const rising = evaluateEvent(
+    { ...repeatPanelEvent, data: { ...repeatPanelEvent.data, potassium: 5.9 } },
+    initialPatientState(),
+  );
+  check(
+    "fires on potassium when it is actually rising",
+    rising.signals.some((s) => s.category === "critical-lab"),
+  );
+  check("does not also suppress it when it fires", rising.suppressed.length === 0);
+
+  // If the plan never addressed potassium, silence would be wrong.
+  const noPlan = initialPatientState();
+  noPlan.admissionIntent.plan = ["Isolation admission; oxygen by mask"];
+  check(
+    "fires on unchanged potassium when the plan never addressed it",
+    evaluateEvent(repeatPanelEvent, noPlan).signals.some((s) => s.category === "critical-lab"),
   );
 }
 

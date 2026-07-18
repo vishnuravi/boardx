@@ -29,6 +29,7 @@ import type {
   ClinicalEvent,
   PatientState,
   SafetySignal,
+  SuppressedSignal,
 } from "@/lib/types";
 import { buildStory, draftAction, findOpenLoops, interpretChange } from "./helpers";
 import type { StoryOutput } from "./schemas";
@@ -36,6 +37,7 @@ import { vetClaim } from "./safety";
 
 export type OrchestrationResult = {
   signals: SafetySignal[];
+  suppressed: SuppressedSignal[];
   drafts: ActionDraft[];
   trace: AgentTrace[];
 };
@@ -51,9 +53,9 @@ export async function orchestrateEvent(
   const trace: AgentTrace[] = [];
 
   // Gate first: deterministic rules decide whether anything fires at all.
-  const gated = evaluateEvent(event, state);
+  const { signals: gated, suppressed } = evaluateEvent(event, state);
   if (gated.length === 0) {
-    return { signals: [], drafts: [], trace };
+    return { signals: [], suppressed, drafts: [], trace };
   }
 
   // The two interpretation questions are independent — run them concurrently.
@@ -138,6 +140,7 @@ export async function orchestrateEvent(
 
   return {
     signals: [signal],
+    suppressed,
     drafts: [
       {
         id: `draft-${signal.id}`,
