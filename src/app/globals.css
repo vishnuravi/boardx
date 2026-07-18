@@ -894,3 +894,11 @@ a.vert-link.on { color: var(--ink); }
   background: var(--cream-2); border-radius: 10px; padding: 9px 12px;
 }
 .bx-autosent i { font-size: 14px; color: var(--blue); flex-shrink: 0; margin-top: 1px; }
+
+/* Delivery receipt on an auto-sent notification. Sent is not the same as read. */
+.bx-autosent { display: flex; flex-direction: column; gap: 6px; }
+.bx-autosent p { display: flex; align-items: flex-start; gap: 6px; margin: 0; }
+.bx-autosent .ack { color: var(--green); font-weight: 500; }
+.bx-autosent .ack i { color: var(--green); }
+.bx-autosent .pending { color: var(--amber-ink); }
+.bx-autosent .pending i { color: var(--amber-ink); }

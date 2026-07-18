@@ -18,6 +18,9 @@ import { orchestrateEvent } from "./agents/orchestrator";
 import { bootstrapSuppressions, buildHandoff } from "./evaluator";
 import type { ClinicalEvent, ClinicianDecision, PatientState, SignalStatus } from "./types";
 
+/** When Medicine confirmed receipt — two minutes before they ordered the CTA. */
+const MEDICINE_ACK_AT = "2021-01-04T04:37:00-08:00";
+
 const KEY = Symbol.for("boardx.patient-state");
 const INFLIGHT = Symbol.for("boardx.inflight");
 
@@ -94,10 +97,18 @@ export async function postEvent(key: keyof typeof POSTABLE): Promise<PatientStat
     if (s.events.some((e) => e.id === event.id)) return s;
 
     s.events = [...s.events, event];
-    // Medicine acts on the notification: receiving the hypoxemia escalation is
-    // what produces their CTA order.
+    // Medicine acts on the notification: they acknowledge it, then order the
+    // CTA. Recording the acknowledgement is the point — a message that was
+    // delivered is not yet a message that was read, and the ED attending has no
+    // other way to tell the difference.
     if (event.id === escalationEvent.id && !s.events.some((e) => e.id === ctaOrderEvent.id)) {
       s.events = [...s.events, ctaOrderEvent];
+      for (const d of drafts) {
+        if (d.autoSent) {
+          d.acknowledgedBy = s.patient.attending;
+          d.acknowledgedAt = MEDICINE_ACK_AT;
+        }
+      }
     }
     s.signals = dedupeById([...s.signals, ...signals]);
     s.suppressed = dedupeById([...s.suppressed, ...suppressed]);

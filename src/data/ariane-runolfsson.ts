@@ -79,17 +79,6 @@ export const evidence: Record<string, EvidenceRef> = {
       "(was 22/min). Oxygen support increased from 4 L to 6 L.",
     simulated: true,
   },
-  "escalation-ack": {
-    id: "escalation-ack",
-    label: "Escalation acknowledged; CTA ordered",
-    shortLabel: "Ack + CTA order",
-    source: "epic",
-    timestamp: atNext("04:39"),
-    excerpt:
-      "Inpatient medicine acknowledged the respiratory escalation and ordered CT angiogram " +
-      "of the chest. Order placed by the admitting clinician.",
-    simulated: true,
-  },
   "cta-final": {
     id: "cta-final",
     label: "Final CTA chest report",
@@ -112,6 +101,17 @@ export const evidence: Record<string, EvidenceRef> = {
       "aspirin 81 mg PO daily. atenolol 50 mg PO daily. rosuvastatin calcium 40 mg PO daily. " +
       "lisinopril 20 mg PO daily. Oxygen by mask, titrate to saturation. Prone positioning as " +
       "tolerated. No therapeutic anticoagulation order and no documented PE-management plan.",
+    simulated: true,
+  },
+  "escalation-ack": {
+    id: "escalation-ack",
+    label: "Medicine acknowledged the notification",
+    shortLabel: "Medicine ack",
+    source: "epic",
+    timestamp: atNext("04:37"),
+    excerpt:
+      "Vishnu Ravi, MD (Internal Medicine) acknowledged the 04:35 respiratory notification at " +
+      "04:37. CT angiogram of the chest ordered at 04:39.",
     simulated: true,
   },
   "heparin-order": {
@@ -232,8 +232,10 @@ export const ctaOrderEvent: ClinicalEvent = {
   type: "order",
   timestamp: atNext("04:39"),
   source: "epic",
-  title: "Escalation acknowledged; CTA chest ordered",
-  content: "Inpatient medicine acknowledged the escalation and ordered CT angiogram of the chest.",
+  title: "Medicine acknowledged 04:37 · ordered CT angiogram 04:39",
+  content:
+    "Vishnu Ravi, MD confirmed receipt of the 04:35 notification at 04:37 and ordered a CT " +
+    "angiogram of the chest at 04:39. Ordered from the floor; the study happens in the ED.",
   status: "reviewed",
   evidence: evidence["escalation-ack"],
   simulated: true,

@@ -132,6 +132,13 @@ export type ActionDraft = {
   decidedAt?: string;
   /** Delivered by BoardX without approval. See SafetySignal.action. */
   autoSent?: boolean;
+  /**
+   * Set when the recipient confirms receipt. A notification that was sent is
+   * not the same as one that was read, and for an auto-sent message the ED
+   * attending has no other way to know which happened.
+   */
+  acknowledgedBy?: string;
+  acknowledgedAt?: string;
 };
 
 /** How one helper's output was produced. Surfaced so the clinician can see it. */

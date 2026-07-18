@@ -150,11 +150,23 @@ export function BoardXRail({
           </div>
 
           {signal.action === "auto-notify" && draft?.autoSent && (
-            <p className="bx-autosent">
-              <i className="ti ti-send" /> Sent automatically to {draft.recipient} at{" "}
-              {formatTime(draft.decidedAt ?? signal.createdAt)} — factual notification, no
-              approval required
-            </p>
+            <div className="bx-autosent">
+              <p>
+                <i className="ti ti-send" /> Sent automatically to {draft.recipient} at{" "}
+                {formatTime(draft.decidedAt ?? signal.createdAt)} — factual notification, no
+                approval required
+              </p>
+              {draft.acknowledgedAt ? (
+                <p className="ack">
+                  <i className="ti ti-checks" /> Acknowledged by {draft.acknowledgedBy} at{" "}
+                  {formatTime(draft.acknowledgedAt)}
+                </p>
+              ) : (
+                <p className="pending">
+                  <i className="ti ti-clock" /> Delivered · not yet acknowledged
+                </p>
+              )}
+            </div>
           )}
 
           {signal.action === "acknowledge" && !decided && (
