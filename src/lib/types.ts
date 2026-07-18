@@ -138,6 +138,8 @@ export type PatientState = {
   evidence: Record<string, EvidenceRef>;
   /** Regenerated from current state whenever a loop closes. */
   handoff: string;
+  /** Set when a clinician decision rewrote the handoff, so the UI can mark it. */
+  handoffUpdatedAt?: string;
   /** Execution record of the most recent orchestration run. */
   trace: AgentTrace[];
   /** Fixed demo clock so the scenario reads identically on every run. */

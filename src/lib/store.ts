@@ -116,6 +116,10 @@ export function decide(
   const signal = s.signals.find((sig) => sig.id === draft.signalId);
   if (signal) signal.status = STATUS_FOR[decision];
 
-  s.handoff = buildHandoff(s);
+  const rebuilt = buildHandoff(s);
+  if (rebuilt !== s.handoff) {
+    s.handoff = rebuilt;
+    s.handoffUpdatedAt = s.now;
+  }
   return s;
 }

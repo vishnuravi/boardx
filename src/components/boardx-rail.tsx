@@ -127,6 +127,38 @@ export function BoardXRail({
         );
       })}
 
+      {/*
+        What approval produces. Until a clinician approves, neither of these
+        exists — the message has no destination and the handoff still says the
+        panel is pending. They are the closed loop made visible.
+      */}
+      {state.drafts
+        .filter((d) => d.decision === "approved")
+        .map((d) => (
+          <div className="bx-thread" key={`sent-${d.id}`}>
+            <div className="h">
+              <i className="ti ti-message" /> Secure Chat · {d.recipient}
+              <time>{formatTime(d.decidedAt ?? state.now)}</time>
+            </div>
+            <div className="b">
+              <div className="msg">{d.message}</div>
+              <div className="meta">
+                <i className="ti ti-check" /> Delivered · sent by you from BoardX
+              </div>
+            </div>
+          </div>
+        ))}
+
+      {state.handoffUpdatedAt && (
+        <div className="bx-handoff">
+          <div className="lbl">
+            <i className="ti ti-arrow-right" /> Transition-ready handoff · updated{" "}
+            {formatTime(state.handoffUpdatedAt)}
+          </div>
+          <p>{state.handoff}</p>
+        </div>
+      )}
+
       {state.suppressed.map((s) => (
         <div className="bx-suppressed" key={s.id}>
           <i className="ti ti-circle-check" />
@@ -249,7 +281,8 @@ function DraftBlock({
       ) : (
         draft.decision === "approved" && (
           <p className="bx-sent">
-            Sent to {draft.recipient} at {formatTime(draft.decidedAt ?? "")}. Handoff updated.
+            <i className="ti ti-check" /> Acknowledged and sent to {draft.recipient} at{" "}
+            {formatTime(draft.decidedAt ?? "")}.
           </p>
         )
       )}
@@ -329,6 +362,65 @@ export function BoardXMobile({
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {state.drafts
+        .filter((d) => d.decision === "approved")
+        .map((d) => (
+          <div className="m-card" key={`sent-${d.id}`} style={{ padding: "14px 16px" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+                color: "var(--ink-2)",
+                marginBottom: 8,
+              }}
+            >
+              Secure Chat · {d.recipient} · {formatTime(d.decidedAt ?? state.now)}
+            </div>
+            <div
+              style={{
+                background: "var(--blue)",
+                color: "#fff",
+                borderRadius: "12px 12px 3px 12px",
+                padding: "11px 14px",
+                fontSize: 12.5,
+                lineHeight: 1.5,
+              }}
+            >
+              {d.message}
+            </div>
+            <div
+              style={{
+                marginTop: 6,
+                textAlign: "right",
+                fontSize: 11,
+                color: "var(--ink-3)",
+              }}
+            >
+              Delivered
+            </div>
+          </div>
+        ))}
+
+      {state.handoffUpdatedAt && (
+        <div className="m-card" style={{ padding: "14px 16px" }}>
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: "var(--ink-2)",
+              marginBottom: 6,
+            }}
+          >
+            Handoff · updated {formatTime(state.handoffUpdatedAt)}
+          </div>
+          <p style={{ fontSize: 12.5, lineHeight: 1.55, margin: 0 }}>{state.handoff}</p>
         </div>
       )}
 
