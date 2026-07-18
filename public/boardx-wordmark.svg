@@ -1,0 +1,38 @@
+<svg width="1600" height="450" viewBox="0 0 1600 450" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">BOARDx wordmark</title>
+  <desc id="desc">A black BOARDx wordmark with a red-orange lowercase x.</desc>
+  <rect width="1600" height="450" rx="32" fill="#050505"/>
+  <text
+    x="350"
+    y="282"
+    fill="#F6F4F1"
+    font-family="Avenir Next, Avenir, Helvetica Neue, Arial, sans-serif"
+    font-size="188"
+    font-weight="500"
+    letter-spacing="5"
+  >BO</text>
+  <!-- Custom A: angular legs with the reference's curved bridging stroke. -->
+  <g fill="#FF3A16">
+    <path d="M636 282L695 149H715L660 282H636Z"/>
+    <path d="M695 149H715L771 282H747L704 181L695 149Z"/>
+    <path d="M661 235C674 210 689 198 705 198C721 198 735 210 748 235H729C721 223 714 217 705 217C695 217 688 223 680 235H661Z"/>
+  </g>
+  <text
+    x="780"
+    y="282"
+    fill="#F6F4F1"
+    font-family="Avenir Next, Avenir, Helvetica Neue, Arial, sans-serif"
+    font-size="188"
+    font-weight="500"
+    letter-spacing="5"
+  >RD</text>
+  <text
+    x="1088"
+    y="281"
+    fill="#FF3A16"
+    font-family="Avenir Next, Avenir, Helvetica Neue, Arial, sans-serif"
+    font-size="202"
+    font-weight="500"
+    letter-spacing="-6"
+  >x</text>
+</svg>

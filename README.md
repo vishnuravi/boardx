@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/boardx-wordmark.svg" alt="BOARDx logo" width="560">
+</p>
+
 # BoardX
 
 > **No patient should become clinically invisible because they are waiting for a bed.**
