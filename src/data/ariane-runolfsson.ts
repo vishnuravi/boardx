@@ -35,13 +35,6 @@ const atNext = (hhmm: string) => `${NEXT}T${hhmm}:00-08:00`;
 
 export const DEMO_NOW = atNext("05:45");
 
-/**
- * The one patient with a workspace behind her. The trackboard links a row
- * through only when it matches this — the other nine boarders are census
- * entries in the prototype, and a link that opened the wrong patient's chart
- * would be worse than no link.
- */
-export const WORKSPACE_PATIENT_ID = "pt-ariane-runolfsson";
 
 export const evidence: Record<string, EvidenceRef> = {
   "abridge-admission": {
