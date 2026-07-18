@@ -13,10 +13,21 @@ import { EvidenceDrawer } from "./evidence-drawer";
  * pipeline actually produced for this event.
  */
 
-function useBoardX(state: PatientState, setState: (s: PatientState) => void) {
+export type BoardXActions = ReturnType<typeof useBoardX>;
+
+/**
+ * Owns every mutation the BoardX surfaces can make.
+ *
+ * Called once, in Workspace, and passed down — the desktop rail and the phone
+ * are two views of one patient, so they must share `busy`. When each held its
+ * own, clicking Post on the desktop left the phone's button live, and the
+ * second click raced the first through a 15-second pipeline.
+ */
+export function useBoardX(state: PatientState, setState: (s: PatientState) => void) {
   const [busy, setBusy] = useState(false);
 
   async function call(input: string, init: RequestInit) {
+    if (busy) return;
     setBusy(true);
     try {
       const res = await fetch(input, init);
@@ -49,12 +60,12 @@ function useBoardX(state: PatientState, setState: (s: PatientState) => void) {
 
 export function BoardXRail({
   state,
-  setState,
+  actions,
 }: {
   state: PatientState;
-  setState: (s: PatientState) => void;
+  actions: BoardXActions;
 }) {
-  const { busy, posted, postPanel, decide, reset } = useBoardX(state, setState);
+  const { busy, posted, postPanel, decide, reset } = actions;
   const [drawerFor, setDrawerFor] = useState<string[] | null>(null);
   const [showTrace, setShowTrace] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -250,12 +261,12 @@ function DraftBlock({
 
 export function BoardXMobile({
   state,
-  setState,
+  actions,
 }: {
   state: PatientState;
-  setState: (s: PatientState) => void;
+  actions: BoardXActions;
 }) {
-  const { busy, posted, postPanel, decide } = useBoardX(state, setState);
+  const { busy, posted, postPanel, decide } = actions;
   const [message, setMessage] = useState<string | null>(null);
 
   const signal = state.signals[0];

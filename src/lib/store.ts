@@ -13,7 +13,15 @@ import { buildHandoff } from "./evaluator";
 import type { ClinicianDecision, PatientState, SignalStatus } from "./types";
 
 const KEY = Symbol.for("boardx.patient-state");
-const globalRef = globalThis as unknown as Record<symbol, PatientState | undefined>;
+const INFLIGHT = Symbol.for("boardx.inflight");
+
+type GlobalStore = {
+  [KEY]?: PatientState;
+  /** The orchestration currently running, if any. See postRepeatPanel. */
+  [INFLIGHT]?: Promise<PatientState> | null;
+};
+
+const globalRef = globalThis as unknown as GlobalStore;
 
 function state(): PatientState {
   if (!globalRef[KEY]) globalRef[KEY] = initialPatientState();
@@ -26,12 +34,18 @@ export function getState(): PatientState {
 
 export function reset(): PatientState {
   globalRef[KEY] = initialPatientState();
+  globalRef[INFLIGHT] = null;
   return state();
 }
 
 /**
  * Posts the demo's repeat metabolic panel and runs the helper pipeline over it.
- * Idempotent — re-posting returns current state without re-running the agents.
+ *
+ * Single-flight. Orchestration takes ~15 seconds, and a bare
+ * `if (already posted) return` guard is a check-then-act race across that
+ * await: two clicks both pass the check before either writes, and you end up
+ * with the pipeline run twice and duplicate signals and drafts. Concurrent
+ * callers await the same promise instead of starting their own run.
  *
  * The event is appended only after orchestration completes, so the helpers
  * reason about the state as it was *before* the panel landed. That is what lets
@@ -41,17 +55,39 @@ export async function postRepeatPanel(): Promise<PatientState> {
   const s = state();
   if (s.events.some((e) => e.id === repeatPanelEvent.id)) return s;
 
-  const { signals, suppressed, drafts, trace } = await orchestrateEvent(repeatPanelEvent, s);
+  const existing = globalRef[INFLIGHT];
+  if (existing) return existing;
 
-  s.events = [...s.events, repeatPanelEvent];
-  s.signals = [...s.signals, ...signals];
-  s.suppressed = [...s.suppressed, ...suppressed];
-  s.drafts = [...s.drafts, ...drafts];
-  s.trace = trace;
-  s.admissionIntent.pendingItems = s.admissionIntent.pendingItems.filter(
-    (item) => !item.toLowerCase().includes("repeat metabolic panel"),
-  );
-  return s;
+  const run = (async () => {
+    const { signals, suppressed, drafts, trace } = await orchestrateEvent(repeatPanelEvent, s);
+
+    // Re-check under the same tick as the write. Belt and braces: `reset()` may
+    // have run while orchestration was in flight, and appending a signal whose
+    // event is gone would leave the state inconsistent.
+    if (s.events.some((e) => e.id === repeatPanelEvent.id)) return s;
+
+    s.events = [...s.events, repeatPanelEvent];
+    s.signals = dedupeById([...s.signals, ...signals]);
+    s.suppressed = dedupeById([...s.suppressed, ...suppressed]);
+    s.drafts = dedupeById([...s.drafts, ...drafts]);
+    s.trace = trace;
+    s.admissionIntent.pendingItems = s.admissionIntent.pendingItems.filter(
+      (item) => !item.toLowerCase().includes("repeat metabolic panel"),
+    );
+    return s;
+  })();
+
+  globalRef[INFLIGHT] = run;
+  try {
+    return await run;
+  } finally {
+    globalRef[INFLIGHT] = null;
+  }
+}
+
+/** Last write wins. Rule IDs are deterministic, so duplicates are re-runs. */
+function dedupeById<T extends { id: string }>(items: T[]): T[] {
+  return [...new Map(items.map((i) => [i.id, i])).values()];
 }
 
 const STATUS_FOR: Record<Exclude<ClinicianDecision, "pending">, SignalStatus> = {

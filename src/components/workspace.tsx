@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { PatientState } from "@/lib/types";
-import { BoardXRail, BoardXMobile } from "./boardx-rail";
+import { BoardXRail, BoardXMobile, useBoardX } from "./boardx-rail";
 import { boardingDuration } from "@/lib/evaluator";
 
 /**
@@ -17,6 +17,9 @@ export function Workspace({ initial }: { initial: PatientState }) {
   const [state, setState] = useState(initial);
   const [rail, setRail] = useState<"ai" | "bx">("ai");
   const [mobileTab, setMobileTab] = useState<"note" | "bx">("note");
+
+  // One action surface for both views, so their busy states cannot diverge.
+  const actions = useBoardX(state, setState);
 
   const badge = state.signals.filter((s) => s.status === "needs-review").length;
 
@@ -64,7 +67,7 @@ export function Workspace({ initial }: { initial: PatientState }) {
             {rail === "ai" ? (
               <AbridgeAiRail />
             ) : (
-              <BoardXRail state={state} setState={setState} />
+              <BoardXRail state={state} actions={actions} />
             )}
 
             {rail === "ai" ? (
@@ -133,7 +136,7 @@ export function Workspace({ initial }: { initial: PatientState }) {
             subtitleClass="enc"
             small
           />
-          <BoardXMobile state={state} setState={setState} />
+          <BoardXMobile state={state} actions={actions} />
           <MobileTabBar active="bx" badge={badge} onSelect={setMobileTab} />
         </Phone>
       </div>
