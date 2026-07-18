@@ -712,7 +712,8 @@ body { padding: 0; overflow: hidden; background: var(--cream); }
 .bx-brief { padding: 14px 18px; margin-bottom: 16px; }
 .bx-brief .lbl { margin-bottom: 10px; }
 .bx-brief dd { margin-bottom: 10px; font-size: 14px; }
-/* ============ OPERATIONS TRACKBOARD (/board) ============ */
+/*
+==== OPERATIONS TRACKBOARD (/board) ============ */
 /* Status colors follow the dataviz status palette — reserved for state, always
    paired with a text label, never identity-by-color-alone. */
 .ops {
@@ -882,3 +883,14 @@ a.vert-link.on { color: var(--ink); }
 
 .ops-overdue { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--sig-red); }
 .ops-kind { color: var(--ink-3); font-size: 15px; margin-right: 2px; }
+/* Who is looking. The whole demo is the ED attending's view of a patient who is
+   physically theirs and clinically someone else's. */
+.patient-bar .pill.viewer { background: var(--blue); color: #fff; }
+
+/* A notification BoardX delivered itself. */
+.bx-autosent {
+  display: flex; align-items: flex-start; gap: 6px;
+  font-size: 13px; line-height: 1.5; color: var(--ink-2);
+  background: var(--cream-2); border-radius: 10px; padding: 9px 12px;
+}
+.bx-autosent i { font-size: 14px; color: var(--blue); flex-shrink: 0; margin-top: 1px; }

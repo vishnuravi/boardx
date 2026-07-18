@@ -117,7 +117,21 @@ export async function orchestrateEvent(
     });
   }
 
-  const signal: SafetySignal = useModelProse
+  // Nothing reviews an auto-sent notification, so the claims the gate put in it
+  // have to survive the rewrite. If the model drops one, take the gate's text.
+  const required = gated[0].action === "auto-notify" ? /not been excluded/i : null;
+  const keptRequired = !required || required.test(change.value.explanation);
+
+  if (change.source === "claude" && verdict.ok && !keptRequired) {
+    trace.push({
+      label: "Safety & Evidence Layer",
+      source: "fallback",
+      ms: 0,
+      reason: "rewrite dropped a required claim; using deterministic text",
+    });
+  }
+
+  const signal: SafetySignal = useModelProse && keptRequired
     ? {
         ...gated[0],
         headline: change.value.headline,
@@ -127,15 +141,14 @@ export async function orchestrateEvent(
       }
     : gated[0];
 
-  // An acknowledge-only signal has nothing to draft. Running the drafter would
-  // produce a message proposing a next step, which for an escalation means
-  // naming a cause — exactly the diagnosis this product does not make.
+  // An acknowledge-only signal has nothing to send — the next step is the
+  // reader's to take, not a message to compose.
   if (signal.action === "acknowledge") {
     return { signals: [signal], suppressed, openLoops, drafts: [], trace };
   }
 
   // Draft last — it depends on the finalized, vetted signal.
-  const draft = await draftAction(state, signal, () => {
+  const draft = await draftAction(state, signal, event, () => {
     const d = draftForSignal(signal, state);
     return { recipient: d.recipient, message: d.message };
   });
@@ -158,6 +171,11 @@ export async function orchestrateEvent(
     });
   }
 
+  // An auto-notify signal is delivered on the spot; anything else is born
+  // pending and waits for a clinician. The distinction is structural, not a
+  // matter of what the UI chooses to render.
+  const autoSent = signal.action === "auto-notify";
+
   return {
     signals: [signal],
     suppressed,
@@ -168,8 +186,9 @@ export async function orchestrateEvent(
         signalId: signal.id,
         recipient: draft.value.recipient || state.patient.admittedTo,
         message,
-        // Structural guarantee: a draft is born pending. Only a clinician moves it.
-        decision: "pending",
+        decision: autoSent ? "approved" : "pending",
+        decidedAt: autoSent ? signal.createdAt : undefined,
+        autoSent,
       },
     ],
     trace,

@@ -2,11 +2,14 @@
  * Hero scenario — Ariane Runolfsson, COVID-19 pneumonia with hypoxemia, and a
  * final CTA that changes the admission.
  *
- * Specified in planning/demo-case-ctpa-pe.md. Two signals in sequence:
+ * VIEWED FROM THE ED TEAM'S SEAT. She is physically in ED bed 7 and clinically
+ * Medicine's patient. Every decision below is made by a team that is not at her
+ * bedside, and every consequence lands on one that is. That gap is the product.
  *
- *   04:35  respiratory escalation      → acknowledge-only, no draft
- *   04:39  medicine acknowledges, orders CTA
- *   05:38  final CTA identifies PE      → high-priority review, drafted message
+ *   04:35  hypoxemia worsens        → BoardX notifies Medicine automatically
+ *   04:39  Medicine orders the CTA  → ED told
+ *   05:38  CTA finds bilateral PE   → both teams told
+ *   05:44  Medicine orders heparin  → ED must start it: the drip runs here
  *
  * PROVENANCE BOUNDARY (demo-case-ctpa-pe.md §"Provenance boundary")
  *
@@ -109,6 +112,19 @@ export const evidence: Record<string, EvidenceRef> = {
       "aspirin 81 mg PO daily. atenolol 50 mg PO daily. rosuvastatin calcium 40 mg PO daily. " +
       "lisinopril 20 mg PO daily. Oxygen by mask, titrate to saturation. Prone positioning as " +
       "tolerated. No therapeutic anticoagulation order and no documented PE-management plan.",
+    simulated: true,
+  },
+  "heparin-order": {
+    id: "heparin-order",
+    label: "Heparin infusion ordered",
+    shortLabel: "Heparin order",
+    source: "epic",
+    timestamp: atNext("05:44"),
+    excerpt:
+      "Heparin sodium infusion, weight-based PE protocol, ordered by Internal Medicine. " +
+      "Bolus then continuous infusion. Patient location at time of order: ED bed 7. " +
+      "Order routed to: Internal Medicine (ordering), ED nursing (administering). " +
+      "No administration recorded.",
     simulated: true,
   },
   "labs-admission": {
@@ -236,6 +252,39 @@ export const ctaResultEvent: ClinicalEvent = {
   evidence: evidence["cta-final"],
   simulated: true,
   data: { study: "cta-chest", peIdentified: true, rightHeartStrain: true },
+};
+
+/**
+ * Step three: Medicine orders anticoagulation.
+ *
+ * The routing is the point. The order goes to Internal Medicine, who wrote it,
+ * and to ED nursing, who will hang it. The ED attending — who is responsible
+ * for this patient while she is physically in their department, and who is the
+ * person using BoardX — is on neither notification. That is not a bug in the
+ * EHR; it is how order routing works. A heparin drip starts on their patient
+ * and nothing tells them.
+ */
+export const heparinOrderEvent: ClinicalEvent = {
+  id: "evt-heparin-order",
+  type: "medication",
+  timestamp: atNext("05:44"),
+  source: "epic",
+  title: "Medicine ordered heparin infusion",
+  content:
+    "Heparin sodium infusion, weight-based PE protocol. Ordered by Internal Medicine, " +
+    "routed to ED nursing for administration. Patient remains in ED bed 7.",
+  status: "posted",
+  evidence: evidence["heparin-order"],
+  simulated: true,
+  data: {
+    medication: "heparin infusion",
+    therapeuticAnticoagulation: true,
+    orderedBy: "Internal Medicine",
+    administered: false,
+    patientLocation: "ED bed 7",
+    /** Who the order notification actually reached. */
+    routedTo: ["Internal Medicine", "ED nursing"],
+  },
 };
 
 export function initialPatientState(): PatientState {

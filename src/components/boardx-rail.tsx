@@ -6,7 +6,9 @@ import type { ActionDraft, PatientState, SafetySignal } from "@/lib/types";
 import { EvidenceDrawer } from "./evidence-drawer";
 
 /** The demo's chart events, in the order the case runs. Drives the stepper. */
-const STEPS: { key: "escalation" | "cta-result"; time: string; label: string; id: string }[] = [
+type StepKey = "escalation" | "cta-result" | "heparin";
+
+const STEPS: { key: StepKey; time: string; label: string; id: string }[] = [
   {
     key: "escalation",
     time: "04:35",
@@ -18,6 +20,12 @@ const STEPS: { key: "escalation" | "cta-result"; time: string; label: string; id
     time: "05:38",
     label: "Final CTA report — PE identified",
     id: "evt-cta-final",
+  },
+  {
+    key: "heparin",
+    time: "05:44",
+    label: "Medicine orders heparin infusion",
+    id: "evt-heparin-order",
   },
 ];
 
@@ -60,7 +68,8 @@ export function useBoardX(state: PatientState, setState: (s: PatientState) => vo
       (sig) => sig.category === "escalation" && sig.status === "acknowledged",
     ),
     ctaPosted: state.events.some((e) => e.id === "evt-cta-final"),
-    postEvent: (event: "escalation" | "cta-result") =>
+    heparinPosted: state.events.some((e) => e.id === "evt-heparin-order"),
+    postEvent: (event: StepKey) =>
       call("/api/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -140,6 +149,14 @@ export function BoardXRail({
             })}
           </div>
 
+          {signal.action === "auto-notify" && draft?.autoSent && (
+            <p className="bx-autosent">
+              <i className="ti ti-send" /> Sent automatically to {draft.recipient} at{" "}
+              {formatTime(draft.decidedAt ?? signal.createdAt)} — factual notification, no
+              approval required
+            </p>
+          )}
+
           {signal.action === "acknowledge" && !decided && (
             <div className="bx-actions">
               <button
@@ -150,19 +167,18 @@ export function BoardXRail({
                 Acknowledge
               </button>
               <span className="bx-nonprescriptive">
-                Reports the change only. No cause named, no imaging suggested.
+                You were not on the order routing. Acknowledging records that you have it.
               </span>
             </div>
           )}
 
           {signal.action === "acknowledge" && decided && (
             <p className="bx-sent">
-              <i className="ti ti-check" /> Acknowledged by {state.patient.attending} ·{" "}
-              {state.patient.service} · CTA chest ordered at 04:39
+              <i className="ti ti-check" /> Acknowledged
             </p>
           )}
 
-          {draft && (
+          {draft && !draft.autoSent && (
             <DraftBlock
               draft={draft}
               settled={decided}
@@ -195,22 +211,14 @@ export function BoardXRail({
         What approval produced, as one block rather than two stacked cards: the
         message that went out and the handoff it rewrote.
       */}
-      {state.drafts
-        .filter((d) => d.decision === "approved")
-        .map((d) => (
-          <div className="bx-outcome" key={`sent-${d.id}`}>
-            <div className="lbl">
-              <i className="ti ti-check" /> Sent to {d.recipient} · {formatTime(d.decidedAt ?? state.now)}
-            </div>
-            <div className="msg">{d.message}</div>
-            {state.handoffUpdatedAt && (
-              <div className="handoff">
-                <span className="k">Handoff updated</span>
-                {state.handoff}
-              </div>
-            )}
+      {state.handoffUpdatedAt && (
+        <div className="bx-outcome">
+          <div className="lbl">
+            <i className="ti ti-check" /> Handoff updated · {formatTime(state.handoffUpdatedAt)}
           </div>
-        ))}
+          <div className="handoff">{state.handoff}</div>
+        </div>
+      )}
 
       {state.suppressed.map((s) => (
         <p className="bx-quiet" key={s.id}>
@@ -244,12 +252,11 @@ export function BoardXRail({
  * so the arrow never runs ahead of the clinical decision.
  */
 export function DemoStepper({ actions }: { actions: BoardXActions }) {
-  const { busy, escalationPosted, escalationAcknowledged, ctaPosted, postEvent, reset } = actions;
+  const { busy, escalationPosted, ctaPosted, heparinPosted, postEvent, reset } = actions;
 
-  const nextIndex = !escalationPosted ? 0 : !ctaPosted ? 1 : -1;
+  const nextIndex = !escalationPosted ? 0 : !ctaPosted ? 1 : !heparinPosted ? 2 : -1;
   const next = nextIndex >= 0 ? STEPS[nextIndex] : null;
-  const waiting = nextIndex === 1 && !escalationAcknowledged;
-  const done = ctaPosted;
+  const done = nextIndex === -1;
 
   return (
     <div className="bx-stepper">
@@ -257,8 +264,6 @@ export function DemoStepper({ actions }: { actions: BoardXActions }) {
         <span className="state">Agents running…</span>
       ) : done ? (
         <span className="state">All events posted</span>
-      ) : waiting ? (
-        <span className="state">Waiting on your acknowledgement below</span>
       ) : (
         <>
           <button
@@ -275,7 +280,7 @@ export function DemoStepper({ actions }: { actions: BoardXActions }) {
         </>
       )}
 
-      {(escalationPosted || ctaPosted) && (
+      {escalationPosted && (
         <button className="bx-stepper-reset" onClick={reset} disabled={busy}>
           Reset
         </button>

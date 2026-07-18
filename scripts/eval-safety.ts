@@ -16,6 +16,7 @@
 import {
   ctaResultEvent,
   escalationEvent,
+  heparinOrderEvent,
   initialPatientState,
 } from "../src/data/ariane-runolfsson";
 import { interpretChange } from "../src/lib/agents/helpers";
@@ -102,8 +103,18 @@ function runEscalationGate() {
   const base = evaluateEvent(escalationEvent, initialPatientState());
 
   check("fires when oxygen requirement rises and saturation falls", base.signals.length === 1);
-  check("the escalation is acknowledge-only", base.signals[0]?.action === "acknowledge");
-  check("the escalation carries no draft-worthy priority", !base.signals[0]?.priority);
+  check("the escalation is auto-notified", base.signals[0]?.action === "auto-notify");
+  check(
+    "the escalation states PE has not been excluded",
+    /not been excluded/i.test(base.signals[0]?.explanation ?? ""),
+  );
+  check(
+    "the escalation names no study, order, or treatment",
+    !/CTA|CT angio|CTPA|heparin|anticoagul|order a |recommend/i.test(
+      base.signals[0]?.explanation ?? "",
+    ),
+    base.signals[0]?.explanation,
+  );
 
   // The case doc marks the 02:40 check "Tracks change; no new alert". That is a
   // suppression, not silence.
@@ -143,7 +154,7 @@ function runPeGate() {
 
   check("fires on final CTA identifying acute PE", fired.signals.length === 1);
   check("the PE signal is high priority", fired.signals[0]?.priority === "high");
-  check("the PE signal carries a draft action", fired.signals[0]?.action === "draft");
+  check("the PE result is auto-notified to both teams", fired.signals[0]?.action === "auto-notify");
 
   const state = initialPatientState();
   check(
@@ -200,6 +211,57 @@ function runPeGate() {
   check(
     "does not re-fire for an event that already has a signal",
     evaluateEvent(ctaResultEvent, dup).signals.length === 0,
+  );
+}
+
+// ------------------------------------------------- STATIC — routing gap gate
+
+function runRoutingGate() {
+  console.log("\nSTATIC — order routed past the ED attending\n");
+
+  const state = stateAtCta();
+  const fired = evaluateEvent(heparinOrderEvent, state);
+
+  check("fires when a drug is ordered for a patient still in the ED", fired.signals.length === 1);
+  check("it needs the ED attending to acknowledge", fired.signals[0]?.action === "acknowledge");
+  check("it is high priority", fired.signals[0]?.priority === "high");
+  check(
+    "it names who the order actually reached",
+    /ED nursing/i.test(fired.signals[0]?.explanation ?? ""),
+    fired.signals[0]?.explanation,
+  );
+
+  // If the ED attending is already on the routing there is no gap to close.
+  const routed = {
+    ...heparinOrderEvent,
+    id: "evt-heparin-routed",
+    data: {
+      ...heparinOrderEvent.data,
+      routedTo: ["Internal Medicine", "ED nursing", "ED attending"],
+    },
+  };
+  check(
+    "does not fire when the ED attending is already notified",
+    evaluateEvent(routed, state).signals.length === 0,
+  );
+
+  // Already given: nothing outstanding.
+  const given = {
+    ...heparinOrderEvent,
+    id: "evt-heparin-given",
+    data: { ...heparinOrderEvent.data, administered: true },
+  };
+  check("does not fire once administration is recorded", evaluateEvent(given, state).signals.length === 0);
+
+  // A drug ordered for a patient already upstairs is not this problem.
+  const upstairs = {
+    ...heparinOrderEvent,
+    id: "evt-heparin-floor",
+    data: { ...heparinOrderEvent.data, patientLocation: "7 West bed 12" },
+  };
+  check(
+    "does not fire for a patient who has left the ED",
+    evaluateEvent(upstairs, state).signals.length === 0,
   );
 }
 
@@ -299,6 +361,7 @@ async function main() {
   runStatic(state);
   runEscalationGate();
   runPeGate();
+  runRoutingGate();
 
   if (process.env.ANTHROPIC_API_KEY) {
     await runLive(state);

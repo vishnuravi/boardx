@@ -47,9 +47,15 @@ const num = (v: unknown): number | null => (typeof v === "number" ? v : null);
  * the current plan already anticipates, and raising it would be the alert noise
  * this product exists to avoid — the 02:40 check is exactly that case.
  *
- * The signal is acknowledge-only. BoardX reports the change and asks the team
- * to reassess; it does not name a cause or suggest imaging, because that would
- * be the diagnosis it must not make (demo-case-ctpa-pe.md §"Safety boundary").
+ * BoardX delivers this one without waiting for approval. It is a factual
+ * notification between teams — numbers, and what those numbers are inconsistent
+ * with — and the ED team should not have to approve telling Medicine that their
+ * patient is deteriorating.
+ *
+ * It names PE as not excluded. That is deliberately the edge of the boundary:
+ * stating what has not been ruled out is information the receiving clinician
+ * needs, whereas naming a study to order would be prescribing their workup. It
+ * suggests no imaging, no order, and no treatment.
  */
 const respiratoryEscalation: Rule = {
   id: "respiratory-escalation",
@@ -94,17 +100,18 @@ const respiratoryEscalation: Rule = {
     const fromRr = num(first?.data?.respRate) ?? priorRr;
 
     const explanation =
-      `${state.patient.name.split(" ")[0]}'s oxygen support increased from ${fromO2} L to ` +
-      `${o2} L while SpO₂ fell from ${fromSpo2}% to ${spo2}%` +
+      `Oxygen support increased from ${fromO2} L to ${o2} L while SpO₂ fell from ` +
+      `${fromSpo2}% to ${spo2}%` +
       (rr !== null && fromRr !== null ? ` and respiratory rate rose from ${fromRr} to ${rr}/min` : "") +
-      `. She remains boarding in the ED. Please reassess.`;
+      `. This is progressing faster than the documented pneumonia course. Pulmonary ` +
+      `embolism has not been excluded. She remains boarding in ED bed 7.`;
 
     return {
       signal: {
         id: `sig-resp-${event.id}`,
         category: "escalation",
-        action: "acknowledge",
-        headline: "Respiratory status needs reassessment",
+        action: "auto-notify",
+        headline: "Hypoxemia progressing — Medicine notified",
         explanation,
         evidence: ["vitals-baseline", "vitals-interim", "vitals-escalation", "abridge-admission"],
         status: "needs-review",
@@ -169,9 +176,9 @@ const finalImagingPeWithoutManagement: Rule = {
       signal: {
         id: `sig-pe-${event.id}`,
         category: "result-change",
-        action: "draft",
+        action: "auto-notify",
         priority: "high",
-        headline: "Final CTA identifies acute pulmonary emboli",
+        headline: "Final CTA identifies acute pulmonary emboli — both teams notified",
         explanation: explanation + context,
         evidence: [
           "cta-final",
@@ -190,7 +197,65 @@ const finalImagingPeWithoutManagement: Rule = {
   },
 };
 
-const rules: Rule[] = [respiratoryEscalation, finalImagingPeWithoutManagement];
+/**
+ * A medication ordered for a patient in the ED, where the ED attending is not
+ * on the routing.
+ *
+ * This is the boarding gap at its sharpest, and it is a routing fact rather
+ * than anyone's mistake. Medicine writes the order and it reaches the people
+ * the order concerns: Medicine, who wrote it, and ED nursing, who will hang it.
+ * The ED attending is responsible for this patient while she is in their
+ * department and is on neither notification. A heparin infusion starts and the
+ * physician accountable for the patient in that bed is not told.
+ *
+ * BoardX is what tells them.
+ */
+const orderedForPatientStillInEd: Rule = {
+  id: "ordered-for-patient-still-in-ed",
+  evaluate: (event) => {
+    if (event.type !== "medication") return null;
+    if (event.data?.administered === true) return null;
+
+    const orderedBy = event.data?.orderedBy;
+    const location = event.data?.patientLocation;
+    if (typeof orderedBy !== "string" || typeof location !== "string") return null;
+    if (!/^ED\b/i.test(location)) return null;
+
+    // Only worth raising if the person reading this was not already told.
+    const routedTo = Array.isArray(event.data?.routedTo) ? (event.data.routedTo as string[]) : [];
+    const viewerNotified = routedTo.some((r) => /ED (attending|physician|provider)/i.test(r));
+    if (viewerNotified) return null;
+
+    const drug = typeof event.data?.medication === "string" ? event.data.medication : "medication";
+
+    return {
+      signal: {
+        id: `sig-med-${event.id}`,
+        category: "plan-discrepancy",
+        action: "acknowledge",
+        priority: "high",
+        headline: `${cap(drug)} ordered for your patient — you are not on the routing`,
+        explanation:
+          `${orderedBy} ordered ${drug} at ${formatTime(event.timestamp)} for a patient in ` +
+          `${location}. The order was routed to ${routedTo.join(" and ")}. No administration is ` +
+          `recorded yet. She is in your department and you are not on the notification.`,
+        evidence: ["heparin-order", "cta-final", "orders-active"],
+        status: "needs-review",
+        confidence: "high",
+        triggeringEventId: event.id,
+        createdAt: event.timestamp,
+      },
+    };
+  },
+};
+
+const cap = (v: string) => v.charAt(0).toUpperCase() + v.slice(1);
+
+const rules: Rule[] = [
+  respiratoryEscalation,
+  finalImagingPeWithoutManagement,
+  orderedForPatientStillInEd,
+];
 
 /**
  * Runs every rule against a newly posted event, skipping events that already

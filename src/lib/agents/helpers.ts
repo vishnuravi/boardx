@@ -134,6 +134,12 @@ What loops are still open for this patient?`,
 export function draftAction(
   state: PatientState,
   signal: SafetySignal,
+  /**
+   * The event that triggered the signal. Required: it is not on the chart yet,
+   * so without it the drafter writes from stale values — it reported a
+   * saturation of 89% at 02:40 while announcing a deterioration to 86%.
+   */
+  event: ClinicalEvent,
   fallback: () => DraftOutput,
 ): Promise<AgentRun<DraftOutput>> {
   return runAgent({
@@ -153,12 +159,22 @@ patient context.
 
 This is a request for review between colleagues. It is not an alert, not an
 instruction, and not an accusation. A clinician will read it before it sends.`,
-    prompt: `${renderPatientContext(state)}
+    prompt: `${renderPatientContext(state, event)}
+
+${renderNewEvent(event)}
 
 SIGNAL RAISED FOR REVIEW
 ${signal.headline}
 ${signal.explanation}
 
-Draft the message.`,
+${
+  signal.action === "auto-notify"
+    ? `This is an automatic notification between teams, sent without review. Report the
+current values from the new event above — not the previous reading. State what they
+are inconsistent with. Carry over any statement in the signal about what has not been
+excluded. Do not suggest a study, an order, a medication, or a next step; the
+receiving clinician decides those.`
+    : `Draft the message.`
+}`,
   });
 }

@@ -11,6 +11,7 @@ import {
   ctaOrderEvent,
   ctaResultEvent,
   escalationEvent,
+  heparinOrderEvent,
   initialPatientState,
 } from "@/data/ariane-runolfsson";
 import { orchestrateEvent } from "./agents/orchestrator";
@@ -56,6 +57,7 @@ export function reset(): PatientState {
 const POSTABLE: Record<string, ClinicalEvent> = {
   escalation: escalationEvent,
   "cta-result": ctaResultEvent,
+  heparin: heparinOrderEvent,
 };
 
 export function isPostable(key: string): key is keyof typeof POSTABLE {
@@ -92,6 +94,11 @@ export async function postEvent(key: keyof typeof POSTABLE): Promise<PatientStat
     if (s.events.some((e) => e.id === event.id)) return s;
 
     s.events = [...s.events, event];
+    // Medicine acts on the notification: receiving the hypoxemia escalation is
+    // what produces their CTA order.
+    if (event.id === escalationEvent.id && !s.events.some((e) => e.id === ctaOrderEvent.id)) {
+      s.events = [...s.events, ctaOrderEvent];
+    }
     s.signals = dedupeById([...s.signals, ...signals]);
     s.suppressed = dedupeById([...s.suppressed, ...suppressed]);
     if (openLoops.length > 0) s.openLoops = openLoops;

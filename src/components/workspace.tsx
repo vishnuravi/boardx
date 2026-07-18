@@ -40,9 +40,11 @@ export function Workspace({ initial }: { initial: PatientState }) {
         </span>
         <span className="pill amber">Boarding {boardingDuration(state)}</span>
         <span className="pill">{state.patient.edBed}</span>
-        <span className="pill">{state.patient.service} · COVID isolation</span>
         <span className="pill">
-          <i className="ti ti-stethoscope" /> {state.patient.attending}
+          <i className="ti ti-stethoscope" /> {state.patient.service} · {state.patient.attending}
+        </span>
+        <span className="pill viewer">
+          <i className="ti ti-user" /> You: ED attending
         </span>
         <Link href="/mobile" className="stage-link">
           iOS view →

@@ -76,17 +76,21 @@ export type SafetySignal = {
     | "open-loop"
     | "escalation";
   /**
-   * What the clinician can do with this signal.
+   * What happens with this signal.
    *
-   * `acknowledge` is the escalation case: BoardX reports a change and asks the
-   * responsible team to reassess. There is no drafted message because there is
-   * nothing to propose — naming a likely cause or suggesting imaging would be
-   * the diagnosis this product does not make.
+   * `auto-notify` — BoardX delivers it without waiting for approval. Reserved
+   *   for factual notifications between teams: a vital-sign trend, a result
+   *   that returned. It reports numbers and what they are inconsistent with; it
+   *   never names an order or a study. This is the one place the product acts
+   *   without a human, and it is why the boundary is drawn at "data, not
+   *   clinical recommendation" rather than at "never send".
    *
-   * `draft` is the review case: a specific finding whose management is not
-   * visible, where a message to a named team is the reviewable next step.
+   * `acknowledge` — needs the reader to confirm they have it, because the next
+   *   step is theirs to take.
+   *
+   * `draft` — a message a clinician edits and approves before it goes.
    */
-  action: "acknowledge" | "draft";
+  action: "auto-notify" | "acknowledge" | "draft";
   /** Marks the card as high-priority in the UI. */
   priority?: "high";
   headline: string;
@@ -126,6 +130,8 @@ export type ActionDraft = {
   message: string;
   decision: ClinicianDecision;
   decidedAt?: string;
+  /** Delivered by BoardX without approval. See SafetySignal.action. */
+  autoSent?: boolean;
 };
 
 /** How one helper's output was produced. Surfaced so the clinician can see it. */
