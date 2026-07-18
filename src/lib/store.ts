@@ -7,7 +7,7 @@
  * evaluators or the UI.
  */
 
-import { finalCtEvent, initialPatientState } from "@/data/maria-chen";
+import { repeatPanelEvent, initialPatientState } from "@/data/ariane-runolfsson";
 import { orchestrateEvent } from "./agents/orchestrator";
 import { buildHandoff } from "./evaluator";
 import type { ClinicianDecision, PatientState, SignalStatus } from "./types";
@@ -30,25 +30,25 @@ export function reset(): PatientState {
 }
 
 /**
- * Posts the demo's final CT read and runs the helper pipeline over it.
+ * Posts the demo's repeat metabolic panel and runs the helper pipeline over it.
  * Idempotent — re-posting returns current state without re-running the agents.
  *
  * The event is appended only after orchestration completes, so the helpers
- * reason about the state as it was *before* the event landed. That is what lets
- * the Change Interpreter compare the new read against the prior understanding.
+ * reason about the state as it was *before* the panel landed. That is what lets
+ * the Change Interpreter compare the new values against the prior understanding.
  */
-export async function postFinalCt(): Promise<PatientState> {
+export async function postRepeatPanel(): Promise<PatientState> {
   const s = state();
-  if (s.events.some((e) => e.id === finalCtEvent.id)) return s;
+  if (s.events.some((e) => e.id === repeatPanelEvent.id)) return s;
 
-  const { signals, drafts, trace } = await orchestrateEvent(finalCtEvent, s);
+  const { signals, drafts, trace } = await orchestrateEvent(repeatPanelEvent, s);
 
-  s.events = [...s.events, finalCtEvent];
+  s.events = [...s.events, repeatPanelEvent];
   s.signals = [...s.signals, ...signals];
   s.drafts = [...s.drafts, ...drafts];
   s.trace = trace;
   s.admissionIntent.pendingItems = s.admissionIntent.pendingItems.filter(
-    (item) => !item.toLowerCase().includes("final ct"),
+    (item) => !item.toLowerCase().includes("repeat metabolic panel"),
   );
   return s;
 }

@@ -11,7 +11,7 @@ export function Workspace({ initial }: { initial: PatientState }) {
   const [drawerFor, setDrawerFor] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const ctPosted = state.events.some((e) => e.id === "evt-ct-final");
+  const panelPosted = state.events.some((e) => e.id === "evt-labs-repeat");
 
   async function call(input: string, init: RequestInit) {
     setBusy(true);
@@ -23,11 +23,11 @@ export function Workspace({ initial }: { initial: PatientState }) {
     }
   }
 
-  const postFinalCt = () =>
+  const postRepeatPanel = () =>
     call("/api/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event: "final-ct" }),
+      body: JSON.stringify({ event: "repeat-panel" }),
     });
 
   const decide = (
@@ -48,7 +48,7 @@ export function Workspace({ initial }: { initial: PatientState }) {
       <Header state={state} onReset={reset} busy={busy} />
 
       <div className="mt-6 space-y-5">
-        <BoardingBrief state={state} ctPosted={ctPosted} />
+        <BoardingBrief state={state} panelPosted={panelPosted} />
 
         {state.signals.map((signal) => (
           <ReviewCard
@@ -68,18 +68,18 @@ export function Workspace({ initial }: { initial: PatientState }) {
         <TraceStrip state={state} />
         <Timeline state={state} onViewEvidence={(id) => setDrawerFor([id])} />
 
-        {!ctPosted && (
+        {!panelPosted && (
           <div className="rounded-xl border border-dashed border-line p-5">
             <span className="label">Demo control</span>
             <p className="mt-1 text-sm text-muted">
-              Simulates the final CT read posting to the chart at 18:42.
+              Simulates the repeat metabolic panel resulting at 05:32, six hours into boarding.
             </p>
             <button
-              onClick={postFinalCt}
+              onClick={postRepeatPanel}
               disabled={busy}
               className="mt-3 rounded-md bg-foreground px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
             >
-              Post final CT result
+              Post repeat metabolic panel
             </button>
           </div>
         )}
@@ -132,7 +132,7 @@ function Header({
   );
 }
 
-function BoardingBrief({ state, ctPosted }: { state: PatientState; ctPosted: boolean }) {
+function BoardingBrief({ state, panelPosted }: { state: PatientState; panelPosted: boolean }) {
   const { admissionIntent } = state;
   return (
     <section className="rounded-xl border border-line bg-surface p-5">
@@ -148,9 +148,9 @@ function BoardingBrief({ state, ctPosted }: { state: PatientState; ctPosted: boo
           </ul>
         </Field>
         <Field label="Since last review">
-          {ctPosted ? (
+          {panelPosted ? (
             <span className="text-review">
-              Final CT read posted — see review card above.
+              Repeat metabolic panel resulted — see review card above.
             </span>
           ) : (
             "No material changes"

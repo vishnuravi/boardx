@@ -10,7 +10,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import { initialPatientState } from "../src/data/maria-chen";
+import { initialPatientState } from "../src/data/ariane-runolfsson";
 import { renderPatientContext } from "../src/lib/agents/context";
 
 const MODEL = "claude-opus-4-8";

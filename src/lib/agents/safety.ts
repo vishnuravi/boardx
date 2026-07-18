@@ -22,8 +22,9 @@ const BANNED = [
   /\bnegligen/i,
   /\byou must\b/i,
   /\bshould have\b/i,
-  /\bstart (anticoagulation|heparin|treatment)\b/i,
   /\badminister\b/i,
+  // Imperative dosing verbs — the product raises findings, it does not order.
+  /\b(start|stop|hold|discontinue|initiate|give)\s+(the\s+)?\w+\s+(now|immediately|stat)\b/i,
 ];
 
 export type SafetyVerdict = {

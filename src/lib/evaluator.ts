@@ -3,12 +3,12 @@
  *
  * Each rule answers the Contextual Safety Watch questions from
  * planning/product-solution.md §2: is this new since last review, is it relevant
- * to the admission problem, does it differ from the preliminary read or prior
- * trend, and has it already been acknowledged?
+ * to the admission problem, does it differ from the prior trend or documented
+ * expectation, and has it already been acknowledged?
  *
  * The logic here is deliberately deterministic. In the product, an LLM drafts
  * the *explanation* and the *message*; the gates that decide whether a signal
- * fires at all (event type, timestamps, active-order checks, duplicate
+ * fires at all (event type, thresholds, active-order checks, duplicate
  * suppression) stay as code so they are testable and auditable.
  */
 
@@ -20,45 +20,68 @@ type Rule = {
   evaluate: (event: ClinicalEvent, state: PatientState) => SafetySignal | null;
 };
 
-const num = (v: unknown): boolean => v === true;
+const num = (v: unknown): number | null => (typeof v === "number" ? v : null);
+const list = (v: unknown): string[] => (Array.isArray(v) ? (v as string[]) : []);
 
 /**
- * A final imaging read that changes the preliminary interpretation — the one
- * signal class in scope for the prototype demo.
+ * A conditional medication continuation whose condition has changed.
+ *
+ * This is the signal class the boarding interval produces: the admission plan
+ * continues a home medication *contingent on* something ("as labs allow",
+ * "review daily against renal function"), the contingency then moves, and the
+ * daily review that would catch it belongs to a team the patient hasn't
+ * physically reached yet.
+ *
+ * The gate is narrow on purpose. It fires only when renal function has
+ * genuinely worsened against the value the plan was written on, a
+ * renally-sensitive medication is still active, and nobody has acknowledged it.
  */
-const finalImagingChangesPreliminary: Rule = {
-  id: "final-imaging-changes-preliminary",
+const conditionalMedVsRenalFunction: Rule = {
+  id: "conditional-med-vs-renal-function",
   evaluate: (event, state) => {
-    if (event.type !== "imaging-final") return null;
+    if (event.type !== "lab") return null;
 
-    const supersedesId = event.data?.supersedesEventId as string | undefined;
-    const prior = state.events.find((e) => e.id === supersedesId);
-    if (!prior) return null;
+    const gfr = num(event.data?.gfr);
+    if (gfr === null) return null;
 
-    const nowPositive = num(event.data?.peIdentified);
-    const wasPositive = num(prior.data?.peIdentified);
-    if (!nowPositive || wasPositive) return null;
+    // Compare against the panel this one supersedes, not merely the last event.
+    const priorId = event.data?.supersedesEventId as string | undefined;
+    const prior = state.events.find((e) => e.id === priorId);
+    const priorGfr = num(prior?.data?.gfr);
+    if (priorGfr === null) return null;
 
-    // Is the relevant treatment already visible in active orders?
+    // Worsening only. An improving GFR is good news, not a signal.
+    if (gfr >= priorGfr) return null;
+
+    // Is a renally-sensitive medication still active and not held?
     const orderEvent = [...state.events]
       .reverse()
-      .find((e) => e.type === "order" && e.data?.anticoagulationPresent !== undefined);
-    const anticoagVisible = num(orderEvent?.data?.anticoagulationPresent);
+      .find((e) => e.type === "order" && e.data?.renallySensitiveActive !== undefined);
+    const held = list(orderEvent?.data?.heldMedications);
+    const atRisk = list(orderEvent?.data?.renallySensitiveActive).filter(
+      (med) => !held.includes(med),
+    );
+    if (atRisk.length === 0) return null;
+
+    const potassium = num(event.data?.potassium);
+    const drugs = atRisk.join(", ");
 
     const explanation = [
-      `Final CT result changes the working admission story. Segmental PE appears on final read and was not in the preliminary interpretation.`,
-      anticoagVisible
-        ? `Anticoagulation is visible in the active medication list.`
-        : `No anticoagulation is visible in the active medication or order list.`,
-      `The admission plan currently lists ${state.admissionIntent.workingDiagnosis.toLowerCase()}.`,
+      `The admission plan continues home ${drugs} contingent on renal function, and commits to`,
+      `reviewing antihypertensives against each morning's labs. The repeat panel shows GFR`,
+      `${gfr.toFixed(1)} mL/min, down from ${priorGfr.toFixed(1)}`,
+      potassium !== null ? `with potassium ${potassium.toFixed(2)} mmol/L.` : `.`,
+      `${drugs.charAt(0).toUpperCase() + drugs.slice(1)} is not visible as held or adjusted in the`,
+      `active order list. The patient is still boarding, so the daily review the plan describes has`,
+      `not yet occurred.`,
     ].join(" ");
 
     return {
       id: `sig-${event.id}`,
-      category: "result-change",
-      headline: "Final imaging read changes the preliminary interpretation",
+      category: "plan-discrepancy",
+      headline: "Renal function has fallen below the condition the plan set for continuing lisinopril",
       explanation,
-      evidence: ["abridge-admission", "ct-preliminary", "ct-final", "orders-active"],
+      evidence: ["abridge-admission", "note-renal-plan", "labs-admission", "labs-repeat", "orders-active"],
       status: "needs-review",
       confidence: "high",
       triggeringEventId: event.id,
@@ -67,7 +90,7 @@ const finalImagingChangesPreliminary: Rule = {
   },
 };
 
-const rules: Rule[] = [finalImagingChangesPreliminary];
+const rules: Rule[] = [conditionalMedVsRenalFunction];
 
 /**
  * Runs every rule against a newly posted event, suppressing signals that
@@ -87,19 +110,15 @@ export function evaluateEvent(event: ClinicalEvent, state: PatientState): Safety
  * `pending` and only a clinician can move it.
  */
 export function draftForSignal(signal: SafetySignal, state: PatientState): ActionDraft {
-  const { patient, admissionIntent } = state;
-  const finalRead = state.evidence["ct-final"];
-  const time = formatTime(finalRead?.timestamp ?? signal.createdAt);
-
-  // "Hypoxia; presumed pneumonia" is a problem-list phrasing — it reads badly
-  // mid-sentence, so join the clauses for prose.
-  const reason = admissionIntent.reasonForAdmission.toLowerCase().replace("; ", " and ");
+  const { patient } = state;
+  const repeat = state.evidence["labs-repeat"];
+  const time = formatTime(repeat?.timestamp ?? signal.createdAt);
 
   const message =
-    `${patient.name} is boarding in the ED after admission for ` +
-    `${reason}. Final CT at ${time} identifies segmental PE ` +
-    `not described in the preliminary interpretation. Anticoagulation is not visible in active orders. ` +
-    `Please review.`;
+    `${patient.name} is boarding in the ED after admission for COVID-19 pneumonia with hypoxemia. ` +
+    `Repeat metabolic panel at ${time} shows GFR 6.4 mL/min, down from 11.1 on admission, with ` +
+    `potassium 5.07. Home lisinopril 20 mg was continued pending lab review and is not visible as ` +
+    `held in active orders. Please review before transfer.`;
 
   return {
     id: `draft-${signal.id}`,
@@ -121,8 +140,9 @@ export function buildHandoff(state: PatientState): string {
     .join("; ");
 
   return [
-    "Admitted for hypoxia and presumed community-acquired pneumonia.",
-    "Final CT subsequently identified segmental PE not described in the preliminary read.",
+    "81-year-old admitted for COVID-19 pneumonia with hypoxemia. On oxygen by mask with prone positioning.",
+    "Renal function declined during boarding: GFR 11.1 to 6.4, creatinine 2.66 to 2.78, potassium 5.07.",
+    "Home lisinopril continued from admission and flagged for review against the new panel.",
     notified ? `${notified}; plan under review.` : "Pending team review.",
   ].join(" ");
 }
@@ -136,7 +156,7 @@ export function formatTime(iso: string): string {
   });
 }
 
-/** Boarding duration as "6h 12m", measured to the demo clock. */
+/** Boarding duration as "6h 17m", measured to the demo clock. */
 export function boardingDuration(state: PatientState): string {
   const start = new Date(state.patient.admissionDecisionAt).getTime();
   const now = new Date(state.now).getTime();
