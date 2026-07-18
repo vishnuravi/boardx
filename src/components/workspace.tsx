@@ -1,288 +1,353 @@
 "use client";
 
 import { useState } from "react";
-import { boardingDuration, formatTime } from "@/lib/evaluator";
 import type { PatientState } from "@/lib/types";
-import { BoardXRail } from "./boardx-rail";
-import { Icon } from "./icons";
+import { BoardXRail, BoardXMobile } from "./boardx-rail";
+import { boardingDuration } from "@/lib/evaluator";
 
 /**
- * The Abridge clinician surface, with BoardX as a third rail tab.
+ * The Abridge clinician surfaces with BoardX added, replicating
+ * planning/mockups/boardx-integration-mockups.html.
  *
- * Layout mirrors planning/mockups/boardx-integration-mockups.html: BoardX has no
- * front door of its own, so everything outside the rail tab is Abridge's chrome
- * reproduced as-is. The only new elements are the tab, its badge, and what
- * renders inside it.
+ * Markup and class names are the mockup's. Everything outside the BoardX tab is
+ * Abridge's chrome reproduced as-is — BoardX has no front door, so the demo has
+ * to show it living inside a surface clinicians already open.
  */
 export function Workspace({ initial }: { initial: PatientState }) {
   const [state, setState] = useState(initial);
-  const [tab, setTab] = useState<"ai" | "boardx">("ai");
+  const [rail, setRail] = useState<"ai" | "bx">("ai");
+  const [mobileTab, setMobileTab] = useState<"note" | "bx">("note");
 
-  const openSignals = state.signals.filter((s) => s.status === "needs-review").length;
+  const badge = state.signals.filter((s) => s.status === "needs-review").length;
 
   return (
-    <div className="mx-auto max-w-[1320px] px-5 pt-11 pb-24">
-      <p className="mb-3.5 text-xs font-semibold uppercase tracking-[0.09em] text-[#7d7a72]">
-        notes.abridge.com — BoardX as a third rail tab
-      </p>
+    <div className="stage">
+      <div className="stage-label">
+        Desktop · notes.abridge.com — BoardX as a third rail tab (tabs are clickable)
+      </div>
 
-      <div className="overflow-hidden rounded-[14px] border border-[#dcd9d0] bg-cream shadow-[0_2px_10px_rgba(30,28,22,0.10)]">
-        <div className="h-2 bg-[#232323]" />
-        <div className="flex min-h-[780px]">
-          <WorklistRail />
+      <div className="desktop">
+        <div className="topstrip" />
+        <div className="desk-body">
+          <div className="worklist-rail">
+            <div className="vert">WORKLIST</div>
+            <div className="sliders">
+              <i className="ti ti-adjustments-horizontal" />
+            </div>
+            <div className="logo">A</div>
+          </div>
+
           <NotePanel state={state} />
-          <div className="mx-4 my-3.5 ml-4.5 flex min-w-0 flex-1 flex-col">
-            <RailTabs tab={tab} setTab={setTab} badge={openSignals} />
-            {tab === "ai" ? (
+
+          <div className="rail-panel">
+            <div className="rail-tabs">
+              <button
+                className={`rtab ${rail === "ai" ? "on" : ""}`}
+                onClick={() => setRail("ai")}
+              >
+                <span className="amark">A</span> Abridge AI
+              </button>
+              <div className="rtab-div" />
+              <button className="rtab">
+                <i className="ti ti-file-text" /> Transcript
+              </button>
+              <div className="rtab-div" />
+              <button
+                className={`rtab ${rail === "bx" ? "on" : ""}`}
+                onClick={() => setRail("bx")}
+              >
+                <i className="ti ti-clipboard-heart" /> BoardX
+                {badge > 0 && <span className="bxbadge">{badge}</span>}
+              </button>
+            </div>
+
+            {rail === "ai" ? (
               <AbridgeAiRail />
             ) : (
               <BoardXRail state={state} setState={setState} />
             )}
+
+            {rail === "ai" ? (
+              <>
+                <div className="ask-row">
+                  <div className="ask">
+                    Ask Abridge AI... <i className="ti ti-send" />
+                  </div>
+                  <div className="bm-btn">
+                    <i className="ti ti-bookmark" />
+                  </div>
+                </div>
+                <div className="disclaimer">
+                  Abridge AI is a supplemental clinical decision support and editing tool, which
+                  may contain errors. Please independently review and confirm all generated
+                  content. <a href="#">Learn more.</a>
+                </div>
+              </>
+            ) : (
+              <div className="disclaimer">
+                BoardX surfaces evidence-linked changes for clinician review. Nothing is sent
+                without your approval. <a href="#">Learn more.</a>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      <div className="stage-label">iOS · Abridge mobile — BoardX in the bottom tab bar</div>
+
+      <div className="phones">
+        <Phone caption="Clinical Note tab — unchanged, BoardX badge visible">
+          <PhoneHead
+            title="11:45 PM"
+            subtitle="Unlabeled Encounter"
+            subtitleClass="enc"
+          />
+          <div className="m-scroll">
+            <MobileCard title="History of Present Illness">
+              {state.note.historyOfPresentIllness.slice(0, 2).map((p) => (
+                <p key={p}>{p}</p>
+              ))}
+            </MobileCard>
+            <MobileCard title="Past Medical History">
+              <ul>
+                {state.note.pastMedicalHistory.map((i) => (
+                  <li key={i}>{i}</li>
+                ))}
+              </ul>
+            </MobileCard>
+            <MobileCard title="Medications">
+              <ul>
+                {state.note.medications.map((m) => (
+                  <li key={m}>{m}</li>
+                ))}
+              </ul>
+            </MobileCard>
+          </div>
+          <MobileTabBar active="note" badge={badge} onSelect={setMobileTab} />
+        </Phone>
+
+        <Phone caption="BoardX tab — the action layer">
+          <PhoneHead
+            title={`${surname(state)} · ${state.patient.age}F`}
+            subtitle={`ED 7 · Boarding ${boardingDuration(state)} · Medicine`}
+            subtitleClass="enc"
+            small
+          />
+          <BoardXMobile state={state} setState={setState} />
+          <MobileTabBar active="bx" badge={badge} onSelect={setMobileTab} />
+        </Phone>
+      </div>
+
+      {/* mobileTab is wired so the tab bar is live rather than decorative. */}
+      <span className="hidden">{mobileTab}</span>
     </div>
   );
 }
 
-function WorklistRail() {
-  return (
-    <div className="relative w-[74px] flex-shrink-0">
-      <div
-        className="absolute left-1/2 top-[26px] -translate-x-1/2 text-[15px] font-semibold tracking-[0.14em] text-ink"
-        style={{ writingMode: "vertical-rl" }}
-      >
-        WORKLIST
-      </div>
-      <div className="absolute bottom-[66px] left-1/2 -translate-x-1/2 text-ink">
-        <Icon name="sliders" size={20} />
-      </div>
-      <div className="absolute bottom-[22px] left-1/2 -translate-x-1/2 text-[26px] font-semibold leading-none text-abridge-red">
-        A
-      </div>
-    </div>
-  );
+function surname(state: PatientState) {
+  const [first, last] = state.patient.name.split(" ");
+  return `${last}, ${first}`;
 }
 
 function NotePanel({ state }: { state: PatientState }) {
   const { note } = state;
   return (
-    <div className="my-3.5 flex min-w-0 flex-[1.18] flex-col rounded-xl border border-line bg-[#fdfcfa] px-11 pt-[34px]">
-      <div className="text-[34px] font-medium tracking-[-0.02em] text-ink-3">Label your note</div>
-      <hr className="my-[26px] mb-[30px] border-t border-line" />
-
-      <div className="flex items-center">
-        <div className="inline-flex rounded-full bg-cream-2 p-1">
-          <button className="rounded-full border border-ink bg-white px-[22px] py-2.5 text-[15px] font-medium text-ink">
-            Clinical Note
-          </button>
-          <button className="rounded-full border border-transparent px-[22px] py-2.5 text-[15px] text-ink-2">
-            Patient Summary (PVS)
-          </button>
+    <div className="note-panel">
+      <div className="note-title">Label your note</div>
+      <hr className="note-hr" />
+      <div className="toggle-row">
+        <div className="toggle-group">
+          <button className="tg on">Clinical Note</button>
+          <button className="tg">Patient Summary (PVS)</button>
         </div>
-        <button className="ml-auto rounded-full border border-line-2 px-[22px] py-[9px] text-[15px] font-medium text-ink">
-          Redraft
-        </button>
+        <button className="redraft">Redraft</button>
       </div>
 
-      <div className="mb-2.5 mt-[34px] text-sm font-medium">Note type</div>
-      <div className="inline-flex items-center gap-2.5 border-b border-line pb-3 text-[23px] font-semibold">
-        {note.noteType}
-        <Icon name="chevron-down" size={18} className="text-ink-2" />
+      <div className="notetype-label">Note type</div>
+      <div className="notetype">
+        {note.noteType} <i className="ti ti-chevron-down" />
       </div>
 
-      <NoteSection title="History of Present Illness">
+      <div className="sec">
+        <div className="sec-h">
+          History of Present Illness <i className="ti ti-copy" />
+        </div>
         {note.historyOfPresentIllness.map((p) => (
-          <p key={p} className="mb-3.5 text-base leading-[1.65]">
-            {p}
-          </p>
+          <p key={p}>{p}</p>
         ))}
-      </NoteSection>
+      </div>
 
-      <NoteSection title="Past Medical History">
-        <ul className="dash-list">
+      <div className="sec">
+        <div className="sec-h">
+          Past Medical History <i className="ti ti-copy" />
+        </div>
+        <ul>
           {note.pastMedicalHistory.map((i) => (
-            <li key={i} className="text-base leading-[1.75]">
-              {i}
-            </li>
+            <li key={i}>{i}</li>
           ))}
         </ul>
-      </NoteSection>
+      </div>
 
-      <NoteSection title="Medications">
-        <ul className="dash-list">
+      <div className="sec">
+        <div className="sec-h">
+          Medications <i className="ti ti-copy" />
+        </div>
+        <ul>
           {note.medications.map((m) => (
-            <li key={m} className="text-base leading-[1.75]">
-              {m}
-            </li>
+            <li key={m}>{m}</li>
           ))}
         </ul>
-      </NoteSection>
+      </div>
 
-      <NoteSection title="Results" className="mb-[46px]">
-        <p className="text-base leading-[1.65]">{note.results}</p>
-      </NoteSection>
+      <div className="sec" style={{ marginBottom: 46 }}>
+        <div className="sec-h">
+          Results <i className="ti ti-copy" />
+        </div>
+        <p>{note.results}</p>
+      </div>
 
-      <div className="-mx-2 mt-auto flex items-center gap-[18px] border-t border-line px-1 py-4">
-        <div className="flex items-center gap-2.5 text-base font-medium">
-          Rating
-          <Icon name="star" size={18} className="text-ink-2" />
-          <Icon name="chevron-down" size={18} className="text-ink-2" />
+      <div className="note-footer">
+        <div className="rating">
+          Rating <i className="ti ti-star" /> <i className="ti ti-chevron-down" />
         </div>
-        <div className="flex-1" />
-        <div className="flex items-center gap-2 text-base">
-          Pronouns <b className="font-semibold">She/Her</b>
-          <Icon name="chevron-up" size={18} className="text-ink-2" />
+        <div className="spacer" />
+        <div className="pronouns">
+          Pronouns <b>She/Her</b> <i className="ti ti-chevron-up" />
         </div>
-        <button className="rounded-full border border-line-2 px-[26px] py-3 text-base font-medium text-ink">
-          Copy All
-        </button>
-        <button className="rounded-full bg-dark px-[26px] py-3 text-base font-medium text-white">
-          Mark As Done
-        </button>
+        <button className="pill-outline">Copy All</button>
+        <button className="pill-dark">Mark As Done</button>
       </div>
     </div>
   );
 }
 
-function NoteSection({
-  title,
-  children,
-  className = "",
-}: {
-  title: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={`mt-10 ${className}`}>
-      <div className="mb-4 flex items-center gap-2.5 text-[21px] font-medium">
-        {title}
-        <Icon name="copy" size={17} className="text-ink-2" />
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function RailTabs({
-  tab,
-  setTab,
-  badge,
-}: {
-  tab: "ai" | "boardx";
-  setTab: (t: "ai" | "boardx") => void;
-  badge: number;
-}) {
-  return (
-    <div className="flex items-stretch border-b border-line-2">
-      <RailTab active={tab === "ai"} onClick={() => setTab("ai")}>
-        <span className="text-[22px] font-semibold leading-none text-blue">A</span> Abridge AI
-      </RailTab>
-      <div className="my-3 w-px bg-line-2" />
-      <RailTab active={false} onClick={() => {}}>
-        <Icon name="file-text" size={20} className="text-ink-2" /> Transcript
-      </RailTab>
-      <div className="my-3 w-px bg-line-2" />
-      <RailTab active={tab === "boardx"} onClick={() => setTab("boardx")}>
-        <Icon
-          name="clipboard"
-          size={20}
-          className={tab === "boardx" ? "text-blue" : "text-ink-2"}
-        />
-        BoardX
-        {badge > 0 && (
-          <span className="rounded-full bg-sig-red px-2 py-0.5 text-xs font-semibold text-white">
-            {badge}
-          </span>
-        )}
-      </RailTab>
-    </div>
-  );
-}
-
-function RailTab({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`relative flex items-center gap-2.5 px-[26px] pb-4 pt-3.5 text-[18px] ${
-        active ? "font-medium text-blue" : "text-ink"
-      }`}
-    >
-      {children}
-      {active && <span className="absolute inset-x-0 -bottom-px h-[3px] bg-blue" />}
-    </button>
-  );
-}
-
-/**
- * The existing Abridge AI panel, reproduced from the mockup. Static — it is
- * context for where BoardX sits, not part of what BoardX does.
- */
+/** The existing Abridge AI panel — context for where BoardX sits. */
 function AbridgeAiRail() {
   return (
-    <>
-      <div className="flex-1 px-1.5 pb-3 pt-[26px]">
-        <div className="mb-[34px] flex items-center justify-end gap-3.5">
-          <Icon name="bookmark" size={20} className="text-ink-2" />
-          <div className="rounded-2xl bg-cream-2 px-[22px] py-4 text-[17px]">
-            Is the patient on any blood thinners?
-          </div>
-        </div>
-        <div className="mb-[30px] flex items-center justify-between rounded-[14px] border border-line bg-[#fdfcfa] px-[26px] py-[22px] text-[19px] font-medium">
-          Thought
-          <Icon name="chevron-down" size={18} className="text-ink-2" />
-        </div>
-        <p className="mb-[30px] text-[17px] leading-[1.62]">
-          Aspirin 81 mg daily is documented in the home medication list, confirmed with the
-          patient&rsquo;s daughter during the admission conversation. No anticoagulants are
-          documented in the current note or transcript.
-        </p>
-        <div className="mb-10 flex justify-end gap-5 text-ink-2">
-          <Icon name="thumb-up" size={19} />
-          <Icon name="thumb-down" size={19} />
-        </div>
-        <div className="mb-[18px] flex items-center gap-2 text-[17px] font-medium">
-          Follow up questions
-          <Icon name="chevron-down" size={16} className="text-ink-2" />
-        </div>
-        {[
-          "Should the home antihypertensives be adjusted for her renal function?",
-          "Any concern for hyperkalemia with continuing the ACE inhibitor?",
-        ].map((q) => (
-          <button
-            key={q}
-            className="mb-3.5 block w-full rounded-full border border-line-2 bg-[#fdfcfa] px-6 py-[15px] text-left text-base text-ink"
-          >
-            {q}
-          </button>
-        ))}
+    <div className="rail-scroll">
+      <div className="user-q">
+        <i className="ti ti-bookmark" />
+        <div className="bubble">Is the patient on any blood thinners?</div>
       </div>
-
-      <div className="mt-2.5 flex items-center gap-3 border-t border-line-2 pt-[18px]">
-        <div className="flex flex-1 items-center justify-between rounded-[14px] border border-line-2 bg-[#fdfcfa] px-[18px] py-[15px] text-[17px] text-ink-3">
-          Ask Abridge AI...
-          <Icon name="send" size={20} />
-        </div>
-        <div className="flex h-[52px] w-[52px] items-center justify-center rounded-xl border border-line-2 bg-[#fdfcfa] text-ink-2">
-          <Icon name="bookmark" size={20} />
-        </div>
+      <div className="thought">
+        Thought <i className="ti ti-chevron-down" />
       </div>
-      <p className="px-[30px] pb-1.5 pt-3 text-center text-[12.5px] leading-[1.5] text-ink-2">
-        Abridge AI is a supplemental clinical decision support and editing tool, which may contain
-        errors. Please independently review and confirm all generated content.{" "}
-        <span className="underline">Learn more.</span>
+      <p className="rail-answer">
+        Aspirin 81 mg daily is documented in the home medication list, confirmed with the
+        patient&rsquo;s daughter during the admission conversation. No anticoagulants are
+        documented in the current note or transcript.
       </p>
-    </>
+      <div className="thumbs">
+        <i className="ti ti-thumb-up" />
+        <i className="ti ti-thumb-down" />
+      </div>
+      <div className="fuq-label">
+        Follow up questions <i className="ti ti-chevron-down" />
+      </div>
+      <button className="fuq">
+        Should the home antihypertensives be adjusted for her renal function?
+      </button>
+      <button className="fuq">
+        Any concern for hyperkalemia with continuing the ACE inhibitor?
+      </button>
+    </div>
   );
 }
 
-export { formatTime, boardingDuration };
+function Phone({ caption, children }: { caption: string; children: React.ReactNode }) {
+  return (
+    <div className="phone-wrap">
+      <div className="phone-cap">{caption}</div>
+      <div className="phone">
+        <div className="screen">
+          <div className="statusbar">
+            12:47 <i className="ti ti-bell-off" style={{ fontSize: 13, marginLeft: 4 }} />
+            <div className="island" />
+            <div className="right">
+              <i className="ti ti-antenna-bars-5" />
+              <i className="ti ti-wifi" />
+              <span className="batt">78</span>
+            </div>
+          </div>
+          {children}
+          <div className="homebar" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PhoneHead({
+  title,
+  subtitle,
+  subtitleClass,
+  small = false,
+}: {
+  title: string;
+  subtitle: string;
+  subtitleClass: string;
+  small?: boolean;
+}) {
+  return (
+    <div className="app-head">
+      <div className="row1">
+        <span className="back">
+          <i className="ti ti-arrow-left" />
+        </span>
+        <div>
+          <div className="time">{title}</div>
+          <div className={subtitleClass} style={small ? { fontSize: 15 } : undefined}>
+            {subtitle}
+          </div>
+        </div>
+        <span className="kebab">
+          <i className="ti ti-dots-vertical" />
+        </span>
+      </div>
+      <hr />
+    </div>
+  );
+}
+
+function MobileCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="m-card">
+      <div className="head">
+        <span className="t">{title}</span>
+        <span className="edit">
+          <i className="ti ti-pencil" />
+        </span>
+      </div>
+      <hr />
+      {children}
+    </div>
+  );
+}
+
+function MobileTabBar({
+  active,
+  badge,
+  onSelect,
+}: {
+  active: "note" | "bx";
+  badge: number;
+  onSelect: (t: "note" | "bx") => void;
+}) {
+  return (
+    <div className="tabbar">
+      <button className={`tb ${active === "note" ? "on" : ""}`} onClick={() => onSelect("note")}>
+        <i className="ti ti-file-description" />
+        <span>Clinical Note</span>
+      </button>
+      <button className="tb">
+        <i className="ti ti-report-medical" />
+        <span>PVS</span>
+      </button>
+      <button className={`tb ${active === "bx" ? "on" : ""}`} onClick={() => onSelect("bx")}>
+        <i className="ti ti-clipboard-heart" />
+        <span>BoardX</span>
+        {badge > 0 && <span className="dot">{badge}</span>}
+      </button>
+    </div>
+  );
+}

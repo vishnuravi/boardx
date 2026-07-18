@@ -4,28 +4,17 @@ import { useState } from "react";
 import { boardingDuration, formatTime } from "@/lib/evaluator";
 import type { ActionDraft, PatientState, SafetySignal } from "@/lib/types";
 import { EvidenceDrawer } from "./evidence-drawer";
-import { Icon } from "./icons";
 
 /**
- * The BoardX rail tab — the action layer.
+ * The BoardX rail tab and its mobile counterpart.
  *
- * Chrome matches the mockup; everything in it is live. The signal text, the
- * evidence set, and the draft all come from the orchestrator, so what renders
- * here is whatever the pipeline actually produced for this event.
+ * Chrome is the mockup's; the content is live. Signal text, evidence set, and
+ * draft all come from the orchestrator, so what renders is whatever the
+ * pipeline actually produced for this event.
  */
-export function BoardXRail({
-  state,
-  setState,
-}: {
-  state: PatientState;
-  setState: (s: PatientState) => void;
-}) {
-  const [drawerFor, setDrawerFor] = useState<string[] | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [showTrace, setShowTrace] = useState(false);
 
-  const posted = state.events.some((e) => e.id === "evt-labs-repeat");
+function useBoardX(state: PatientState, setState: (s: PatientState) => void) {
+  const [busy, setBusy] = useState(false);
 
   async function call(input: string, init: RequestInit) {
     setBusy(true);
@@ -37,129 +26,142 @@ export function BoardXRail({
     }
   }
 
-  const postPanel = () =>
-    call("/api/events", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event: "repeat-panel" }),
-    });
+  return {
+    busy,
+    posted: state.events.some((e) => e.id === "evt-labs-repeat"),
+    postPanel: () =>
+      call("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event: "repeat-panel" }),
+      }),
+    decide: (draftId: string, decision: string, message: string) =>
+      call(`/api/drafts/${draftId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision, message }),
+      }),
+    reset: () => call("/api/patient", { method: "DELETE" }),
+  };
+}
 
-  const decide = (draftId: string, decision: string, message: string) =>
-    call(`/api/drafts/${draftId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ decision, message }),
-    });
+// ------------------------------------------------------------------- desktop
 
-  const reset = () => call("/api/patient", { method: "DELETE" });
+export function BoardXRail({
+  state,
+  setState,
+}: {
+  state: PatientState;
+  setState: (s: PatientState) => void;
+}) {
+  const { busy, posted, postPanel, decide, reset } = useBoardX(state, setState);
+  const [drawerFor, setDrawerFor] = useState<string[] | null>(null);
+  const [showTrace, setShowTrace] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   return (
-    <>
-      <div className="flex-1 px-1.5 pb-3 pt-[26px]">
-        <div className="mb-[22px] flex flex-wrap items-center gap-2.5">
-          <span className="text-[18px] font-semibold">
-            {state.patient.name.split(" ").reverse().join(", ")} · {state.patient.age}F
-          </span>
-          <Chip amber>Boarding {boardingDuration(state)}</Chip>
-          <Chip>{state.patient.admittedTo.replace(" (", " · ").replace(")", "")}</Chip>
-          <Chip>{state.patient.edBed}</Chip>
-        </div>
+    <div className="rail-scroll">
+      <div className="bx-context">
+        <span className="name">
+          {surname(state)} · {state.patient.age}F
+        </span>
+        <span className="bx-chip amber">Boarding {boardingDuration(state)}</span>
+        <span className="bx-chip">Medicine · COVID isolation</span>
+        <span className="bx-chip">{state.patient.edBed}</span>
+      </div>
 
-        {state.signals.map((signal) => (
-          <SignalCard
-            key={signal.id}
-            signal={signal}
-            draft={state.drafts.find((d) => d.signalId === signal.id)}
-            state={state}
-            busy={busy}
-            editing={editing}
-            setEditing={setEditing}
-            onViewEvidence={() => setDrawerFor(signal.evidence)}
-            onDecide={decide}
-          />
-        ))}
+      {state.signals.map((signal) => {
+        const draft = state.drafts.find((d) => d.signalId === signal.id);
+        const settled = signal.status !== "needs-review";
+        return (
+          <div className="bx-signal" key={signal.id}>
+            <div className="bx-signal-h">
+              <i className={`ti ti-${settled ? "circle-check" : "alert-triangle"}`} />
+              {settled ? statusLabel(signal.status) : "Needs clinician review"}
+              <time>{formatTime(signal.createdAt)}</time>
+            </div>
+            <div className="bx-signal-b">
+              <p>{signal.explanation}</p>
 
-        {state.suppressed.map((s) => (
-          <div
-            key={s.id}
-            className="mb-5 flex items-center gap-3.5 rounded-[14px] border border-line bg-[#fdfcfa] px-[22px] py-4"
-          >
-            <Icon name="circle-check" size={22} className="shrink-0 text-green" />
-            <div className="min-w-0">
-              <div className="text-[15px] font-medium">
-                Suppressed · {s.finding} · {formatTime(s.createdAt)}
+              <div className="bx-ev">
+                {signal.evidence.map((id) => {
+                  const ref = state.evidence[id];
+                  if (!ref) return null;
+                  return (
+                    <span
+                      key={id}
+                      className={id === "labs-repeat" ? "hot" : undefined}
+                      onClick={() => setDrawerFor(signal.evidence)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      {ref.source === "abridge" && <i className="ti ti-microphone" />}
+                      {ref.shortLabel} {formatTime(ref.timestamp)}
+                    </span>
+                  );
+                })}
               </div>
-              <div className="mt-0.5 text-[13.5px] text-ink-3">{s.reason}</div>
-            </div>
-            <button
-              onClick={() => setShowTrace((v) => !v)}
-              className="ml-auto whitespace-nowrap text-sm text-blue"
-            >
-              {showTrace ? "Hide trace" : "View trace"}
-            </button>
-          </div>
-        ))}
 
-        {showTrace && state.trace.length > 0 && (
-          <div className="mb-5 rounded-[14px] border border-line bg-[#fdfcfa] px-[22px] py-4">
-            <div className="mb-2.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-ink-2">
-              How this was produced
+              {draft && (
+                <DraftBlock
+                  draft={draft}
+                  settled={settled}
+                  editing={editing}
+                  setEditing={setEditing}
+                  busy={busy}
+                  onDecide={decide}
+                />
+              )}
             </div>
-            <ol className="space-y-2">
-              {state.trace.map((step, i) => (
-                <li key={`${step.label}-${i}`} className="flex flex-wrap items-baseline gap-x-2.5">
-                  <span
-                    className={`text-xs ${step.source === "claude" ? "text-blue" : "text-ink-3"}`}
-                  >
-                    {step.source === "claude" ? "claude" : "code"}
-                  </span>
-                  <span className="text-[13.5px] font-medium">{step.label}</span>
-                  {step.ms > 0 && (
-                    <span className="tabular text-xs text-ink-3">{step.ms}ms</span>
-                  )}
-                  {step.reason && (
-                    <span className="w-full text-xs leading-relaxed text-ink-3">{step.reason}</span>
-                  )}
-                </li>
-              ))}
-            </ol>
           </div>
-        )}
+        );
+      })}
 
-        {!posted && (
-          <div className="rounded-[14px] border border-dashed border-line-2 px-[22px] py-5">
-            <div className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-ink-2">
-              Demo control
+      {state.suppressed.map((s) => (
+        <div className="bx-suppressed" key={s.id}>
+          <i className="ti ti-circle-check" />
+          <div>
+            <div className="t1">
+              Suppressed · {s.finding} · {formatTime(s.createdAt)}
             </div>
-            <p className="mt-1.5 text-[15px] leading-[1.55] text-ink-2">
-              Story is current. Post the 05:32 repeat metabolic panel to run the pipeline.
-            </p>
-            <button
-              onClick={postPanel}
-              disabled={busy}
-              className="mt-3.5 rounded-full bg-dark px-[22px] py-2.5 text-[15px] font-medium text-white disabled:opacity-50"
-            >
-              {busy ? "Running helpers…" : "Post repeat metabolic panel"}
-            </button>
+            <div className="t2">{s.reason}</div>
           </div>
-        )}
-
-        {posted && (
-          <button
-            onClick={reset}
-            disabled={busy}
-            className="mt-2 text-[13px] text-ink-3 underline disabled:opacity-50"
-          >
-            Reset demo
+          <button className="trace" onClick={() => setShowTrace((v) => !v)}>
+            {showTrace ? "Hide trace" : "View trace"}
           </button>
-        )}
-      </div>
+        </div>
+      ))}
 
-      <div className="mt-auto flex items-center justify-center gap-1.5 px-[30px] pb-1.5 pt-3.5 text-[12.5px] text-ink-2">
-        <Icon name="lock" size={13} />
-        BoardX surfaces evidence-linked changes for clinician review. Nothing is sent without your
-        approval.
-      </div>
+      {showTrace && state.trace.length > 0 && (
+        <div className="bx-trace">
+          <div className="lbl">How this was produced</div>
+          {state.trace.map((step, i) => (
+            <div className="row" key={`${step.label}-${i}`}>
+              <span className={step.source === "claude" ? "src claude" : "src"}>
+                {step.source === "claude" ? "claude" : "code"}
+              </span>
+              <span className="name">{step.label}</span>
+              {step.ms > 0 && <span className="ms">{step.ms}ms</span>}
+              {step.reason && <span className="why">{step.reason}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!posted && (
+        <div className="bx-demo">
+          <div className="lbl">Demo control</div>
+          <p>Story is current. Post the 05:32 repeat metabolic panel to run the pipeline.</p>
+          <button className="pill-dark" onClick={postPanel} disabled={busy}>
+            {busy ? "Running helpers…" : "Post repeat metabolic panel"}
+          </button>
+        </div>
+      )}
+
+      {posted && (
+        <button className="bx-reset" onClick={reset} disabled={busy}>
+          Reset demo
+        </button>
+      )}
 
       {drawerFor && (
         <EvidenceDrawer
@@ -167,144 +169,206 @@ export function BoardXRail({
           onClose={() => setDrawerFor(null)}
         />
       )}
+    </div>
+  );
+}
+
+function DraftBlock({
+  draft,
+  settled,
+  editing,
+  setEditing,
+  busy,
+  onDecide,
+}: {
+  draft: ActionDraft;
+  settled: boolean;
+  editing: boolean;
+  setEditing: (v: boolean) => void;
+  busy: boolean;
+  onDecide: (id: string, decision: string, message: string) => void;
+}) {
+  const [message, setMessage] = useState(draft.message);
+
+  return (
+    <>
+      <div className="bx-draft">
+        <div className="lbl">
+          <i className="ti ti-message" /> Draft · Secure Chat · {draft.recipient}
+        </div>
+        {editing && !settled ? (
+          <textarea
+            className="bx-edit"
+            rows={5}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+          />
+        ) : (
+          <p>{message}</p>
+        )}
+      </div>
+
+      {!settled ? (
+        <div className="bx-actions">
+          <button
+            className="pill-dark"
+            disabled={busy}
+            onClick={() => onDecide(draft.id, "approved", message)}
+          >
+            Approve and Send
+          </button>
+          <button className="pill-outline" onClick={() => setEditing(!editing)}>
+            {editing ? "Done" : "Edit"}
+          </button>
+          <button
+            className="pill-outline"
+            disabled={busy}
+            onClick={() => onDecide(draft.id, "deferred", message)}
+          >
+            Defer
+          </button>
+          <button
+            className="ghost"
+            disabled={busy}
+            onClick={() => onDecide(draft.id, "dismissed", message)}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : (
+        draft.decision === "approved" && (
+          <p className="bx-sent">
+            Sent to {draft.recipient} at {formatTime(draft.decidedAt ?? "")}. Handoff updated.
+          </p>
+        )
+      )}
     </>
   );
 }
 
-function Chip({ children, amber = false }: { children: React.ReactNode; amber?: boolean }) {
-  return (
-    <span
-      className={`rounded-full px-[13px] py-[5px] text-[13px] ${
-        amber ? "bg-amber-bg text-amber-ink" : "bg-cream-2 text-ink-2"
-      }`}
-    >
-      {children}
-    </span>
-  );
-}
+// -------------------------------------------------------------------- mobile
 
-function SignalCard({
-  signal,
-  draft,
+export function BoardXMobile({
   state,
-  busy,
-  editing,
-  setEditing,
-  onViewEvidence,
-  onDecide,
+  setState,
 }: {
-  signal: SafetySignal;
-  draft?: ActionDraft;
   state: PatientState;
-  busy: boolean;
-  editing: boolean;
-  setEditing: (v: boolean) => void;
-  onViewEvidence: () => void;
-  onDecide: (draftId: string, decision: string, message: string) => void;
+  setState: (s: PatientState) => void;
 }) {
-  const [message, setMessage] = useState(draft?.message ?? "");
-  const settled = signal.status !== "needs-review";
+  const { busy, posted, postPanel, decide } = useBoardX(state, setState);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const signal = state.signals[0];
+  const draft = state.drafts[0];
+  const settled = signal && signal.status !== "needs-review";
+  const text = message ?? draft?.message ?? "";
 
   return (
-    <div
-      className={`mb-5 overflow-hidden rounded-[14px] border bg-[#fdfcfa] ${
-        settled ? "border-line" : "border-sig-red-line"
-      }`}
-    >
-      <div
-        className={`flex items-center gap-2.5 px-[22px] py-[15px] text-[17px] font-medium ${
-          settled ? "bg-cream-2 text-green" : "bg-sig-red-bg text-sig-red"
-        }`}
-      >
-        <Icon name={settled ? "circle-check" : "alert-triangle"} size={19} />
-        {settled ? statusLabel(signal.status) : "Needs clinician review"}
-        <time className="ml-auto text-sm font-normal">{formatTime(signal.createdAt)}</time>
-      </div>
-
-      <div className="px-[22px] py-5">
-        <p className="mb-[18px] text-base leading-[1.6]">{signal.explanation}</p>
-
-        <div className="mb-[18px] flex flex-wrap gap-2">
-          {signal.evidence.map((id) => {
-            const ref = state.evidence[id];
-            if (!ref) return null;
-            const hot = id === "labs-repeat";
-            return (
-              <button
-                key={id}
-                onClick={onViewEvidence}
-                className={`inline-flex items-center gap-1.5 rounded-full border bg-white px-[13px] py-1.5 text-[13px] ${
-                  hot ? "border-sig-red-line text-sig-red" : "border-line-2 text-ink-2"
-                }`}
-              >
-                {ref.source === "abridge" && <Icon name="microphone" size={13} />}
-                {ref.shortLabel} {formatTime(ref.timestamp)}
-              </button>
-            );
-          })}
-        </div>
-
-        {draft && (
-          <div className="mb-5 rounded-[14px] bg-cream-2 px-[18px] py-[15px]">
-            <div className="mb-1.5 flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-ink-2">
-              <Icon name="message" size={13} />
-              Draft · Secure Chat · {draft.recipient}
+    <div className="m-scroll">
+      {signal && (
+        <div className="m-card m-signal">
+          <div className="sh">
+            <i className={`ti ti-${settled ? "circle-check" : "alert-triangle"}`} />
+            {settled ? statusLabel(signal.status) : "Needs clinician review"}
+            <time>{formatTime(signal.createdAt)}</time>
+          </div>
+          <div className="sb">
+            <p>{signal.explanation}</p>
+            <div className="m-evs">
+              {signal.evidence.map((id) => {
+                const ref = state.evidence[id];
+                if (!ref) return null;
+                return (
+                  <span key={id} className={id === "labs-repeat" ? "hot" : undefined}>
+                    {ref.shortLabel} {formatTime(ref.timestamp)}
+                  </span>
+                );
+              })}
             </div>
-            {editing && !settled ? (
-              <textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                rows={5}
-                className="mt-1 w-full resize-y rounded-lg border border-line-2 bg-white p-3 text-[15px] leading-[1.55] focus:outline-2 focus:outline-blue"
-              />
-            ) : (
-              <p className="text-[15px] leading-[1.55]">{message}</p>
+            {draft && (
+              <>
+                <div className="m-draftcard">
+                  <div className="lbl">Draft to {draft.recipient} · Secure Chat</div>
+                  <p>{text}</p>
+                </div>
+                {!settled && (
+                  <>
+                    <button
+                      className="m-approve"
+                      disabled={busy}
+                      onClick={() => decide(draft.id, "approved", text)}
+                    >
+                      Approve and Send
+                    </button>
+                    <div className="m-btnrow">
+                      <button onClick={() => setMessage(text)}>Edit</button>
+                      <button disabled={busy} onClick={() => decide(draft.id, "deferred", text)}>
+                        Defer
+                      </button>
+                      <button
+                        className="ghost"
+                        disabled={busy}
+                        onClick={() => decide(draft.id, "dismissed", text)}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </>
+                )}
+              </>
             )}
           </div>
-        )}
+        </div>
+      )}
 
-        {draft && !settled && (
-          <div className="flex flex-wrap gap-2.5">
-            <button
-              onClick={() => onDecide(draft.id, "approved", message)}
-              disabled={busy}
-              className="rounded-full bg-dark px-[22px] py-[11px] text-[15px] font-medium text-white disabled:opacity-50"
-            >
-              Approve and Send
-            </button>
-            <button
-              onClick={() => setEditing(!editing)}
-              className="rounded-full border border-line-2 px-[22px] py-[11px] text-[15px] font-medium text-ink"
-            >
-              {editing ? "Done" : "Edit"}
-            </button>
-            <button
-              onClick={() => onDecide(draft.id, "deferred", message)}
-              disabled={busy}
-              className="rounded-full border border-line-2 px-[22px] py-[11px] text-[15px] font-medium text-ink disabled:opacity-50"
-            >
-              Defer
-            </button>
-            <button
-              onClick={() => onDecide(draft.id, "dismissed", message)}
-              disabled={busy}
-              className="rounded-full px-3.5 py-[11px] text-[15px] text-ink-3 disabled:opacity-50"
-            >
-              Dismiss
-            </button>
+      {state.suppressed.map((s) => (
+        <div
+          className="m-card"
+          key={s.id}
+          style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 18px" }}
+        >
+          <i className="ti ti-circle-check" style={{ fontSize: 20, color: "var(--green)" }} />
+          <div>
+            <div style={{ fontSize: 13.5, fontWeight: 600 }}>
+              Suppressed · {s.finding} · {formatTime(s.createdAt)}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 1 }}>
+              Unchanged; flagged in renal plan
+            </div>
           </div>
-        )}
+          <span
+            style={{
+              marginLeft: "auto",
+              fontSize: 12.5,
+              color: "var(--blue)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            View trace
+          </span>
+        </div>
+      ))}
 
-        {draft && settled && draft.decision === "approved" && (
-          <p className="text-[15px] text-ink-2">
-            Sent to {draft.recipient} at{" "}
-            <span className="tabular">{formatTime(draft.decidedAt ?? signal.createdAt)}</span>.
-            Handoff updated.
-          </p>
-        )}
+      {!posted && (
+        <div className="bx-demo">
+          <div className="lbl">Demo control</div>
+          <p>Post the 05:32 repeat panel.</p>
+          <button className="pill-dark" onClick={postPanel} disabled={busy}>
+            {busy ? "Running…" : "Post panel"}
+          </button>
+        </div>
+      )}
+
+      <div className="m-lock">
+        <i className="ti ti-lock" style={{ fontSize: 12 }} /> Nothing sends without your approval
       </div>
     </div>
   );
+}
+
+function surname(state: PatientState) {
+  const [first, last] = state.patient.name.split(" ");
+  return `${last}, ${first}`;
 }
 
 function statusLabel(status: SafetySignal["status"]): string {
