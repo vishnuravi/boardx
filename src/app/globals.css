@@ -624,3 +624,38 @@ body { padding: 0; overflow: hidden; background: var(--cream); }
 .note-panel::-webkit-scrollbar-thumb:hover,
 .rail-scroll::-webkit-scrollbar-thumb:hover,
 .phones::-webkit-scrollbar-thumb:hover { background: var(--ink-3); background-clip: content-box; }
+
+/* ============ iOS FRAME SIZING ============
+   The mockup gives .screen a min-height, so each frame grows to fit whatever it
+   holds — fine for a static picture of one state, but in the running app the
+   BoardX tab accumulates a signal, a draft, a sent thread and a handoff, and the
+   two phones end up visibly different heights.
+
+   Fix the height so both frames match, and let the content area scroll inside
+   the bezel the way it would on a real device. 310px of screen width at a
+   modern iPhone's ~2.17 aspect is ~672px; capped to the viewport so the frame
+   is never taller than the window. */
+
+.screen {
+  min-height: 0;
+  height: min(672px, calc(100dvh - 150px));
+}
+
+.m-scroll {
+  flex: 1; min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* The status bar, header and tab bar are chrome — they stay put while the
+   content between them moves. */
+.statusbar, .app-head, .tabbar, .homebar { flex-shrink: 0; }
+
+.m-scroll::-webkit-scrollbar { width: 8px; }
+.m-scroll::-webkit-scrollbar-thumb {
+  background: var(--line-2); border-radius: 999px;
+  border: 2px solid transparent; background-clip: content-box;
+}
+.m-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-3); background-clip: content-box;
+}
