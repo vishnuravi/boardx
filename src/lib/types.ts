@@ -167,6 +167,8 @@ export type PatientState = {
   signals: SafetySignal[];
   /** Rules that evaluated and declined. Shown beneath the fired signals. */
   suppressed: SuppressedSignal[];
+  /** Unresolved items found by the Open-Loop Finder, shown in the brief. */
+  openLoops: string[];
   drafts: ActionDraft[];
   evidence: Record<string, EvidenceRef>;
   /** Regenerated from current state whenever a loop closes. */

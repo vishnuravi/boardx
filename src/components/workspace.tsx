@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { PatientState } from "@/lib/types";
-import { BoardXRail, DemoStepper, useBoardX } from "./boardx-rail";
+import { BoardXRail, useBoardX } from "./boardx-rail";
 
 /**
  * The Abridge clinician surfaces with BoardX added, replicating
@@ -32,10 +32,6 @@ export function Workspace({ initial }: { initial: PatientState }) {
         <Link href="/mobile" className="stage-link">
           iOS view →
         </Link>
-      </div>
-
-      <div className="demo-bar">
-        <DemoStepper state={state} actions={actions} />
       </div>
 
       <div className="desktop">

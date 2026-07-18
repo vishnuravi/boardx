@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { boardingDuration } from "@/lib/evaluator";
 import type { PatientState } from "@/lib/types";
-import { BoardXMobile, DemoStepper, useBoardX } from "./boardx-rail";
+import { BoardXMobile, useBoardX } from "./boardx-rail";
 
 /**
  * The iOS surface — Abridge mobile with BoardX in the bottom tab bar.
@@ -31,10 +31,6 @@ export function MobileDemo({ initial }: { initial: PatientState }) {
         <Link href="/" className="stage-link">
           Desktop view →
         </Link>
-      </div>
-
-      <div className="demo-bar">
-        <DemoStepper state={state} actions={actions} />
       </div>
 
       <div className="phones">

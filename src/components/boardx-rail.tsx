@@ -7,8 +7,18 @@ import { EvidenceDrawer } from "./evidence-drawer";
 
 /** The demo's chart events, in the order the case runs. Drives the stepper. */
 const STEPS: { key: "escalation" | "cta-result"; time: string; label: string; id: string }[] = [
-  { key: "escalation", time: "04:35", label: "Respiratory trend", id: "evt-vitals-escalation" },
-  { key: "cta-result", time: "05:38", label: "Final CTA read", id: "evt-cta-final" },
+  {
+    key: "escalation",
+    time: "04:35",
+    label: "New vitals — SpO₂ 86% on 6 L",
+    id: "evt-vitals-escalation",
+  },
+  {
+    key: "cta-result",
+    time: "05:38",
+    label: "Final CTA report — PE identified",
+    id: "evt-cta-final",
+  },
 ];
 
 /**
@@ -81,8 +91,6 @@ export function BoardXRail({
   state: PatientState;
   actions: BoardXActions;
 }) {
-  // Posting and resetting live in the persistent demo bar above the frame; the
-  // rail only renders the patient's state and the two clinical decisions on it.
   const { busy, acknowledge, decide } = actions;
   const [drawerFor, setDrawerFor] = useState<string[] | null>(null);
   const [editing, setEditing] = useState(false);
@@ -100,6 +108,8 @@ export function BoardXRail({
           <i className="ti ti-stethoscope" /> {state.patient.attending}
         </span>
       </div>
+
+      <DemoStepper actions={actions} />
 
       <BoardingBrief state={state} />
 
@@ -237,94 +247,54 @@ export function BoardXRail({
 }
 
 /**
- * Steps the demo through its events one at a time. Shows the current chart time
- * and a forward arrow that posts the next event; between the two events it holds
- * until the clinician acknowledges the escalation — which is what makes Medicine
- * order the CTA — so the arrow never runs ahead of the clinical loop.
+ * Advances the demo one chart event at a time.
+ *
+ * It sits at the top of the same column as everything it produces, so the whole
+ * demo reads down one page: what arrives next, then the story it lands in, then
+ * the card raised, then what your decision produced. Splitting the controls
+ * across a separate bar meant bouncing between two places to drive one loop.
+ *
+ * The one thing it will not do is act for the clinician. Between the two events
+ * it waits: acknowledging the escalation is what makes Medicine order the CTA,
+ * so the arrow never runs ahead of the clinical decision.
  */
-export function DemoStepper({
-  state,
-  actions,
-}: {
-  state: PatientState;
-  actions: BoardXActions;
-}) {
+export function DemoStepper({ actions }: { actions: BoardXActions }) {
   const { busy, escalationPosted, escalationAcknowledged, ctaPosted, postEvent, reset } = actions;
-  // The chart clock: the latest event actually on the chart. ISO strings sort
-  // chronologically, so a max by string is a max by time.
-  const currentTime = formatTime(
-    state.events.reduce(
-      (latest, e) => (e.timestamp > latest ? e.timestamp : latest),
-      state.events[0]?.timestamp ?? state.now,
-    ),
-  );
 
   const nextIndex = !escalationPosted ? 0 : !ctaPosted ? 1 : -1;
   const next = nextIndex >= 0 ? STEPS[nextIndex] : null;
-  // Step two waits on acknowledging step one.
-  const gated = nextIndex === 1 && !escalationAcknowledged;
+  const waiting = nextIndex === 1 && !escalationAcknowledged;
   const done = ctaPosted;
 
   return (
     <div className="bx-stepper">
-      <div className="bx-stepper-top">
-        <span className="clock">
-          <i className="ti ti-clock-hour-4" /> {currentTime}
-        </span>
-        <span className="track">
-          {STEPS.map((s, i) => {
-            const posted = state.events.some((e) => e.id === s.id);
-            return (
-              <span
-                key={s.key}
-                className={`node ${posted ? "on" : ""} ${
-                  i === nextIndex && !gated ? "next" : ""
-                }`}
-                title={`${s.time} · ${s.label}`}
-              />
-            );
-          })}
-        </span>
-        <span className="lbl">Demo timeline</span>
-        {(escalationPosted || ctaPosted) && (
-          <button className="bx-stepper-reset" onClick={reset} disabled={busy}>
-            Reset
-          </button>
-        )}
-      </div>
-
-      {done ? (
-        <div className="bx-stepper-msg done">
-          <i className="ti ti-circle-check" /> All events posted — the admission has changed.
-        </div>
-      ) : gated ? (
-        <div className="bx-stepper-msg wait">
-          <i className="ti ti-arrow-up" /> Acknowledge the escalation above — Medicine then
-          orders the CTA, and its 05:38 read becomes the next event.
-        </div>
+      {busy ? (
+        <span className="state">Agents running…</span>
+      ) : done ? (
+        <span className="state">All events posted</span>
+      ) : waiting ? (
+        <span className="state">Waiting on your acknowledgement below</span>
       ) : (
-        <div className="bx-step-next">
-          <span className="when">
-            {busy ? (
-              "Agents running…"
-            ) : (
-              <>
-                <b>{next?.time}</b> · {next?.label}
-              </>
-            )}
-          </span>
+        <>
           <button
             className="bx-step-fwd"
             onClick={() => next && postEvent(next.key)}
-            disabled={busy || !next}
-            title={next ? `Post ${next.time} · ${next.label}` : undefined}
+            disabled={!next}
             aria-label={next ? `Post ${next.time} ${next.label}` : "Next event"}
           >
             <i className="ti ti-player-track-next-filled" />
           </button>
-        </div>
+          <span className="state">
+            Next: <b>{next?.time}</b> {next?.label}
+          </span>
+        </>
       )}
 
+      {(escalationPosted || ctaPosted) && (
+        <button className="bx-stepper-reset" onClick={reset} disabled={busy}>
+          Reset
+        </button>
+      )}
     </div>
   );
 }
@@ -377,7 +347,12 @@ function BoardingBrief({ state }: { state: PatientState }) {
         <dd className={open.length > 0 ? "changed" : undefined}>{sinceLastReview}</dd>
 
         <dt>Open items</dt>
-        <dd>{intent.pendingItems.length > 0 ? intent.pendingItems.join("; ") : "None outstanding"}</dd>
+        <dd>
+          {/* The Open-Loop Finder's output once it has run; the admission
+              plan's pending list until then. */}
+          {(state.openLoops.length > 0 ? state.openLoops : intent.pendingItems).join("; ") ||
+            "None outstanding"}
+        </dd>
       </dl>
     </div>
   );
@@ -478,6 +453,8 @@ export function BoardXMobile({
 
   return (
     <div className="m-scroll">
+      <DemoStepper actions={actions} />
+
       {signal && (
         <div className="m-card m-signal">
           <div className="sh">

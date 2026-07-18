@@ -49,8 +49,8 @@ export const evidence: Record<string, EvidenceRef> = {
   },
   "vitals-baseline": {
     id: "vitals-baseline",
-    label: "Respiratory baseline — 00:15",
-    shortLabel: "Resp baseline",
+    label: "Vital signs — 00:15",
+    shortLabel: "Vitals",
     source: "epic",
     timestamp: atNext("00:15"),
     excerpt: "SpO₂ 92% on 4 L oxygen. Respiratory rate 22/min.",
@@ -58,8 +58,8 @@ export const evidence: Record<string, EvidenceRef> = {
   },
   "vitals-interim": {
     id: "vitals-interim",
-    label: "Respiratory check — 02:40",
-    shortLabel: "Resp 02:40",
+    label: "Vital signs — 02:40",
+    shortLabel: "Vitals",
     source: "epic",
     timestamp: atNext("02:40"),
     excerpt: "SpO₂ 89% on 4 L oxygen. Respiratory rate 24/min. Oxygen requirement unchanged.",
@@ -67,8 +67,8 @@ export const evidence: Record<string, EvidenceRef> = {
   },
   "vitals-escalation": {
     id: "vitals-escalation",
-    label: "Respiratory trend — 04:35",
-    shortLabel: "Resp trend",
+    label: "Vital signs — 04:35",
+    shortLabel: "Vitals",
     source: "epic",
     timestamp: atNext("04:35"),
     excerpt:
@@ -302,6 +302,7 @@ export function initialPatientState(): PatientState {
     events: seededEvents.map((e) => ({ ...e, data: e.data ? { ...e.data } : undefined })),
     signals: [],
     suppressed: [],
+    openLoops: [],
     drafts: [],
     evidence,
     handoff:

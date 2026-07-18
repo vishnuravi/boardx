@@ -39,6 +39,8 @@ import { vetClaim } from "./safety";
 export type OrchestrationResult = {
   signals: SafetySignal[];
   suppressed: SuppressedSignal[];
+  /** Unresolved items the Open-Loop Finder surfaced. Feeds the brief. */
+  openLoops: string[];
   drafts: ActionDraft[];
   trace: AgentTrace[];
 };
@@ -56,7 +58,7 @@ export async function orchestrateEvent(
   // Gate first: deterministic rules decide whether anything fires at all.
   const { signals: gated, suppressed } = evaluateEvent(event, state);
   if (gated.length === 0) {
-    return { signals: [], suppressed, drafts: [], trace };
+    return { signals: [], suppressed, openLoops: [], drafts: [], trace };
   }
 
   // The two interpretation questions are independent — run them concurrently.
@@ -79,6 +81,13 @@ export async function orchestrateEvent(
 
   trace.push({ label: "Change Interpreter", source: change.source, ms: change.ms, reason: change.reason });
   trace.push({ label: "Open-Loop Finder", source: loops.source, ms: loops.ms, reason: loops.reason });
+
+  // Its output feeds the brief's open items. Previously this call ran on the
+  // critical path and only ever produced a trace line — several seconds per
+  // event for nothing a clinician could see.
+  const openLoops = loops.value.loops
+    .filter((l) => !l.acknowledged)
+    .map((l) => l.description);
 
   // Safety gate on the interpreter's prose before it can reach a clinician.
   // Scoped to evidence on the chart at this moment, so a citation to a result
@@ -122,7 +131,7 @@ export async function orchestrateEvent(
   // produce a message proposing a next step, which for an escalation means
   // naming a cause — exactly the diagnosis this product does not make.
   if (signal.action === "acknowledge") {
-    return { signals: [signal], suppressed, drafts: [], trace };
+    return { signals: [signal], suppressed, openLoops, drafts: [], trace };
   }
 
   // Draft last — it depends on the finalized, vetted signal.
@@ -152,6 +161,7 @@ export async function orchestrateEvent(
   return {
     signals: [signal],
     suppressed,
+    openLoops,
     drafts: [
       {
         id: `draft-${signal.id}`,

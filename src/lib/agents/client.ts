@@ -12,7 +12,19 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type { z } from "zod";
 
-export const MODEL = "claude-opus-4-8";
+/**
+ * Sonnet 5 rather than Opus for every helper.
+ *
+ * These are small, tightly-scoped structured-output calls over a context of
+ * under a thousand tokens — comparing two vitals readings, checking an order
+ * list, writing sixty words of secure chat. Sonnet 5 reaches near-Opus quality
+ * on this shape of work at materially lower latency, and the eval suite is what
+ * keeps that claim honest: the over-triggering, citation, and language tests
+ * all run against whatever model is configured here.
+ *
+ * Override with BOARDX_MODEL to A/B against Opus without touching code.
+ */
+export const MODEL = process.env.BOARDX_MODEL ?? "claude-sonnet-5";
 
 /** Hard ceiling per helper. Past this we take the deterministic answer. */
 const TIMEOUT_MS = 20_000;
@@ -50,6 +62,12 @@ type RunOptions<T> = {
   fallback: () => T;
   /** Lower effort for mechanical extraction; higher for clinical judgment. */
   effort?: "low" | "medium" | "high";
+  /**
+   * Sonnet 5 runs adaptive thinking when `thinking` is omitted, which costs
+   * seconds these helpers do not need. Extraction and drafting run with it
+   * off; the one call that makes a judgement leaves it on.
+   */
+  thinking?: "adaptive" | "disabled";
 };
 
 /**
@@ -75,6 +93,7 @@ export async function runAgent<T>(opts: RunOptions<T>): Promise<AgentRun<T>> {
         model: MODEL,
         max_tokens: 4096,
         system: opts.system,
+        thinking: { type: opts.thinking ?? "disabled" },
         output_config: {
           format: zodOutputFormat(opts.schema),
           effort: opts.effort ?? "medium",

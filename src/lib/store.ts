@@ -85,7 +85,7 @@ export async function postEvent(key: keyof typeof POSTABLE): Promise<PatientStat
   if (existing) return existing;
 
   const run = (async () => {
-    const { signals, suppressed, drafts, trace } = await orchestrateEvent(event, s);
+    const { signals, suppressed, openLoops, drafts, trace } = await orchestrateEvent(event, s);
 
     // Re-check under the same tick as the write: reset() may have run while
     // orchestration was in flight.
@@ -94,6 +94,7 @@ export async function postEvent(key: keyof typeof POSTABLE): Promise<PatientStat
     s.events = [...s.events, event];
     s.signals = dedupeById([...s.signals, ...signals]);
     s.suppressed = dedupeById([...s.suppressed, ...suppressed]);
+    if (openLoops.length > 0) s.openLoops = openLoops;
     s.drafts = dedupeById([...s.drafts, ...drafts]);
     s.trace = trace;
     return s;

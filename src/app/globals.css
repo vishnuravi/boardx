@@ -579,50 +579,6 @@ body { padding: 0; overflow: hidden; background: var(--cream); }
 }
 
 /* Demo stepper — advance the case one event at a time, with a clock and a forward arrow. */
-.bx-stepper {
-  border: 1px dashed var(--line-2); border-radius: 14px;
-  padding: 14px 18px 16px; background: #fdfcfa;
-}
-.bx-stepper-top { display: flex; align-items: center; gap: 12px; margin-bottom: 13px; }
-.bx-stepper .clock {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 15px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums;
-}
-.bx-stepper .clock i { font-size: 16px; color: var(--ink-2); }
-.bx-stepper .track { display: inline-flex; align-items: center; gap: 7px; }
-.bx-stepper .track .node {
-  width: 9px; height: 9px; border-radius: 50%;
-  background: transparent; border: 1.5px solid var(--line-2);
-}
-.bx-stepper .track .node.on { background: var(--ink); border-color: var(--ink); }
-.bx-stepper .track .node.next {
-  background: var(--blue); border-color: var(--blue);
-  animation: bx-pulse 1.15s ease-in-out infinite;
-}
-.bx-stepper .lbl {
-  margin-left: auto; font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
-  text-transform: uppercase; color: var(--ink-3);
-}
-/* The next step reads as a label with a transport control beside it, rather
-   than a full-width button. The label carries the information; the button is
-   just the thing you press. */
-.bx-step-next { display: flex; align-items: center; gap: 10px; }
-.bx-step-next .when { font-size: 14px; color: var(--ink-2); white-space: nowrap; }
-.bx-step-next .when b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
-
-.bx-step-fwd {
-  width: 30px; height: 30px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  padding: 0; border-radius: 50%; border: none;
-  background: var(--dark); color: #fff;
-}
-.bx-step-fwd i { font-size: 15px; margin-left: 1px; }
-.bx-step-fwd:hover:not(:disabled) { background: #000; }
-.bx-step-fwd:disabled { opacity: 0.4; cursor: default; }
-.bx-stepper-msg { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.5; }
-.bx-stepper-msg i { font-size: 16px; margin-top: 1px; flex-shrink: 0; }
-.bx-stepper-msg.wait { color: var(--amber-ink); }
-.bx-stepper-msg.done { color: var(--green); align-items: center; }
 
 /* ============ iOS FRAME SIZING ============
    The mockup gives .screen a min-height, so each frame grows to fit whatever it
@@ -659,29 +615,36 @@ body { padding: 0; overflow: hidden; background: var(--cream); }
   background: var(--ink-3); background-clip: content-box;
 }
 
-/* ============ PERSISTENT DEMO BAR ============
-   The stepper used to sit at the bottom of the BoardX rail, which meant
-   scrolling past the brief, the signals, the sent thread and the handoff to
-   reach the button that advances the demo. It is the demo's control surface,
-   not part of the patient's chart, so it belongs above the frame where it stays
-   visible and the next action is always one click away. */
 
-.demo-bar {
-  flex-shrink: 0;
-  background: var(--cream-2);
-  border-bottom: 1px solid var(--line-2);
-  padding: 10px 20px;
+/* ============ DEMO STEPPER ============
+   One quiet row at the top of the column: the button that advances the demo and
+   a line saying what it will post. Everything the demo produces appears below
+   it, so the whole loop reads top to bottom in one place. */
+
+.bx-stepper {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 20px; padding: 10px 14px;
+  background: var(--cream-2); border-radius: 999px;
 }
-.demo-bar .bx-stepper {
-  margin: 0; border: none; background: transparent; padding: 0;
-  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+.bx-stepper .state { font-size: 13.5px; color: var(--ink-2); }
+.bx-stepper .state b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+.bx-step-fwd {
+  width: 28px; height: 28px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0; border-radius: 50%; border: none;
+  background: var(--dark); color: #fff;
 }
-.demo-bar .bx-stepper-top { margin: 0; flex-shrink: 0; }
-.demo-bar .bx-stepper-msg { margin: 0; }
-.demo-bar .bx-step-fwd { margin: 0; }
+.bx-step-fwd i { font-size: 14px; margin-left: 1px; }
+.bx-step-fwd:hover:not(:disabled) { background: #000; }
+.bx-step-fwd:disabled { opacity: 0.4; cursor: default; }
 
 .bx-stepper-reset {
-  margin-left: 12px; background: none; border: none; padding: 0;
+  margin-left: auto; background: none; border: none; padding: 0;
   font-size: 12px; color: var(--ink-3); text-decoration: underline;
 }
 .bx-stepper-reset:hover { color: var(--ink); }
+
+/* Mobile: same row, tighter. */
+.m-scroll .bx-stepper { padding: 8px 12px; margin-bottom: 14px; }
+.m-scroll .bx-stepper .state { font-size: 12px; }

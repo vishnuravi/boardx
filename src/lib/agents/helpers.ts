@@ -51,6 +51,7 @@ export function buildStory(
   return runAgent({
     label: "Patient Story Builder",
     effort: "low",
+    thinking: "disabled",
     schema: storySchema,
     fallback,
     system: `${HOUSE_RULES}
@@ -72,7 +73,8 @@ export function interpretChange(
 ): Promise<AgentRun<ChangeOutput>> {
   return runAgent({
     label: "Change Interpreter",
-    effort: "high",
+    effort: "medium",
+    thinking: "disabled",
     schema: changeSchema,
     fallback,
     system: `${HOUSE_RULES}
@@ -106,7 +108,8 @@ export function findOpenLoops(
 ): Promise<AgentRun<OpenLoopOutput>> {
   return runAgent({
     label: "Open-Loop Finder",
-    effort: "medium",
+    effort: "low",
+    thinking: "disabled",
     schema: openLoopSchema,
     fallback,
     system: `${HOUSE_RULES}
@@ -131,7 +134,8 @@ export function draftAction(
 ): Promise<AgentRun<DraftOutput>> {
   return runAgent({
     label: "Action Drafting Helper",
-    effort: "medium",
+    effort: "low",
+    thinking: "disabled",
     schema: draftSchema,
     fallback,
     system: `${HOUSE_RULES}
