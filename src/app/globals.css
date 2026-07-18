@@ -603,14 +603,22 @@ body { padding: 0; overflow: hidden; background: var(--cream); }
   margin-left: auto; font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--ink-3);
 }
+/* The next step reads as a label with a transport control beside it, rather
+   than a full-width button. The label carries the information; the button is
+   just the thing you press. */
+.bx-step-next { display: flex; align-items: center; gap: 10px; }
+.bx-step-next .when { font-size: 14px; color: var(--ink-2); white-space: nowrap; }
+.bx-step-next .when b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+
 .bx-step-fwd {
-  width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
-  font-size: 15px; font-weight: 500; padding: 12px 22px; border-radius: 999px;
-  border: none; background: var(--dark); color: #fff;
+  width: 30px; height: 30px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0; border-radius: 50%; border: none;
+  background: var(--dark); color: #fff;
 }
-.bx-step-fwd:disabled { opacity: 0.55; cursor: default; }
-.bx-step-fwd .when b { font-weight: 700; font-variant-numeric: tabular-nums; }
-.bx-step-fwd i { font-size: 18px; }
+.bx-step-fwd i { font-size: 15px; margin-left: 1px; }
+.bx-step-fwd:hover:not(:disabled) { background: #000; }
+.bx-step-fwd:disabled { opacity: 0.4; cursor: default; }
 .bx-stepper-msg { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.5; }
 .bx-stepper-msg i { font-size: 16px; margin-top: 1px; flex-shrink: 0; }
 .bx-stepper-msg.wait { color: var(--amber-ink); }

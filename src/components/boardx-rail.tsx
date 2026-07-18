@@ -303,22 +303,26 @@ export function DemoStepper({
           orders the CTA, and its 05:38 read becomes the next event.
         </div>
       ) : (
-        <button
-          className="bx-step-fwd"
-          onClick={() => next && postEvent(next.key)}
-          disabled={busy || !next}
-        >
-          {busy ? (
-            <span className="when">Agents running…</span>
-          ) : (
-            <>
-              <span className="when">
+        <div className="bx-step-next">
+          <span className="when">
+            {busy ? (
+              "Agents running…"
+            ) : (
+              <>
                 <b>{next?.time}</b> · {next?.label}
-              </span>
-              <i className="ti ti-arrow-right" />
-            </>
-          )}
-        </button>
+              </>
+            )}
+          </span>
+          <button
+            className="bx-step-fwd"
+            onClick={() => next && postEvent(next.key)}
+            disabled={busy || !next}
+            title={next ? `Post ${next.time} · ${next.label}` : undefined}
+            aria-label={next ? `Post ${next.time} ${next.label}` : "Next event"}
+          >
+            <i className="ti ti-player-track-next-filled" />
+          </button>
+        </div>
       )}
 
     </div>
