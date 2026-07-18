@@ -113,6 +113,29 @@ Action Drafting Helper
 SafetySignal + ActionDraft   decision: pending
 ```
 
+### The agents
+
+Each agent has one narrow job, its own system prompt, and its own reasoning effort.
+Four are Claude calls that return structured (zod-schema) output; the fifth is code
+only. They are deliberately separate rather than one do-everything call — the
+clinician sees a single workspace, but the reasoning behind it is decomposed so each
+step can be evaluated, swapped, or given a different model on its own. Every agent
+carries a deterministic fallback, so a model outage degrades the prose rather than
+dropping the signal.
+
+| Agent | Runs on | What it does | Fallback if the model is unavailable |
+| --- | --- | --- | --- |
+| **Patient Story Builder** | Claude · `low` | Organizes current state into the ten-second Boarding Brief. Reports what *is*, not what it means. | Deterministic brief from the admission intent |
+| **Change Interpreter** | Claude · `high` | Compares the new event against the admission story, prior data, and active plan, and decides whether it is a *meaningful* change for this patient. | The deterministic gate's own text |
+| **Open-Loop Finder** | Claude · `medium` | Finds still-open loops: pending results, plan items with no matching order, unacknowledged findings. Runs concurrently with the Interpreter. | Pending items from the admission intent |
+| **Action Drafting Helper** | Claude · `medium` | Turns the vetted signal into a role-appropriate secure-chat draft the clinician edits and approves. Never sends. | Deterministic message template |
+| **Safety & Evidence Layer** | code only | Gates every model claim before a clinician sees it — provenance (every cited ID resolves), grounding (no surviving evidence → not shown), language (no accusatory or instructional phrasing). | *is* the deterministic guarantee |
+
+Each runs behind one envelope (`lib/agents/client.ts`): a 20-second timeout and the
+fallback above, so no agent can be the reason the demo stalls. Every run is tagged
+`claude` or `code` in the trace the UI surfaces (see below), so you can always see
+which agent produced a given line and whether it ran on the model or fell back.
+
 **Division of authority.** The deterministic gates decide *whether* a signal fires.
 The model decides *how it reads*. Event type, timestamps, active-order checks, and
 duplicate suppression stay in code so they're auditable and testable; a model outage
@@ -191,10 +214,13 @@ Without a key the app still runs the full loop on the deterministic path, with e
 helper marked `code` in the trace. With a key, the four helpers run on Claude.
 
 Open http://localhost:3000. The workspace loads Ariane Runolfsson mid-boarding with no
-material changes. Click **Post repeat metabolic panel** to run the demo loop: the brief
-updates, a "needs clinician review" card appears with linked evidence, and you can edit
-and approve the drafted message to the admitting team — which acknowledges the signal
-and refreshes the handoff. **Reset demo** returns to the starting state.
+material changes. Click **Post repeat metabolic panel** to run the demo loop: a
+**BoardX agents** panel shows each agent working live, then settles into what each one
+produced — tagged `Claude` or `code` per agent, with **View trace** expanding the
+timing and the reason behind every step. The brief updates, a "needs clinician review"
+card appears with linked evidence, and you can edit and approve the drafted message to
+the admitting team — which acknowledges the signal and refreshes the handoff. **Reset
+demo** returns to the starting state.
 
 ### Layout
 
