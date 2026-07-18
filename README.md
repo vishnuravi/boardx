@@ -214,13 +214,13 @@ Without a key the app still runs the full loop on the deterministic path, with e
 helper marked `code` in the trace. With a key, the four helpers run on Claude.
 
 Open http://localhost:3000. The workspace loads Ariane Runolfsson mid-boarding with no
-material changes. Click **Post repeat metabolic panel** to run the demo loop: a
-**BoardX agents** panel shows each agent working live, then settles into what each one
-produced — tagged `Claude` or `code` per agent, with **View trace** expanding the
-timing and the reason behind every step. The brief updates, a "needs clinician review"
-card appears with linked evidence, and you can edit and approve the drafted message to
-the admitting team — which acknowledges the signal and refreshes the handoff. **Reset
-demo** returns to the starting state.
+material changes. A demo stepper (chart clock + forward arrow) advances the case one
+event at a time: post the 04:35 respiratory escalation to run the agents over it, a
+"needs clinician review" card appears with linked evidence and the BoardX tab shows a
+notification count, acknowledge it (Medicine then orders the CTA), then post the 05:38
+final CTA read — the result that changes the admission. You can edit and approve the
+drafted message to the admitting team, which acknowledges the signal and refreshes the
+handoff. **Reset demo** returns to the starting state.
 
 ### Layout
 

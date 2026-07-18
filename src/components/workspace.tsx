@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { PatientState } from "@/lib/types";
-import { BoardXRail, useBoardX } from "./boardx-rail";
+import { BoardXRail, DemoStepper, useBoardX } from "./boardx-rail";
 
 /**
  * The Abridge clinician surfaces with BoardX added, replicating
@@ -32,6 +32,10 @@ export function Workspace({ initial }: { initial: PatientState }) {
         <Link href="/mobile" className="stage-link">
           iOS view →
         </Link>
+      </div>
+
+      <div className="demo-bar">
+        <DemoStepper state={state} actions={actions} />
       </div>
 
       <div className="desktop">
@@ -110,9 +114,10 @@ function NotePanel({ state }: { state: PatientState }) {
   const { note } = state;
   return (
     <div className="note-panel">
-      <div className="note-title">Label your note</div>
-      <hr className="note-hr" />
-      <div className="toggle-row">
+      <div className="note-scroll">
+        <div className="note-title">Label your note</div>
+        <hr className="note-hr" />
+        <div className="toggle-row">
         <div className="toggle-group">
           <button className="tg on">Clinical Note</button>
           <button className="tg">Patient Summary (PVS)</button>
@@ -161,6 +166,7 @@ function NotePanel({ state }: { state: PatientState }) {
           Results <i className="ti ti-copy" />
         </div>
         <p>{note.results}</p>
+      </div>
       </div>
 
       <div className="note-footer">

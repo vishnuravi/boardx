@@ -359,75 +359,11 @@
   font-size: 13px; color: var(--ink-3); text-decoration: underline;
 }
 
-/* Agent pipeline — makes it visible that the agents are running and what each did. */
-.bx-pipeline {
-  background: #fdfcfa; border: 1px solid var(--line); border-radius: 14px;
-  padding: 15px 18px 8px; margin-bottom: 20px;
-}
-.bx-pipeline-h { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
-.bx-pipeline-h .lbl {
-  font-size: 11.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--ink-2); display: flex; align-items: center; gap: 6px;
-}
-.bx-pipeline-h .lbl i { font-size: 14px; }
-.bx-pipeline-h .state {
-  font-size: 10.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px;
-  background: var(--cream-2); color: var(--ink-3); letter-spacing: 0.02em;
-}
-.bx-pipeline-h .state.run { background: #e5ecff; color: var(--blue); }
-.bx-pipeline-h .state.done { background: #e2f1e9; color: var(--green); }
-.bx-pipeline-h .detail-toggle {
-  margin-left: auto; font-size: 12.5px; color: var(--blue);
-  background: none; border: none; padding: 0;
-}
-.bx-pipeline-stages { display: flex; flex-direction: column; }
-.bx-pipeline .stage {
-  display: flex; align-items: flex-start; gap: 11px; padding: 9px 2px;
-  border-top: 1px solid var(--line);
-}
-.bx-pipeline .stage:first-child { border-top: none; }
-.bx-pipeline .dot {
-  width: 9px; height: 9px; border-radius: 50%; margin-top: 4px; flex-shrink: 0;
-  background: var(--ink-3);
-}
-.bx-pipeline .dot.claude { background: var(--blue); }
-.bx-pipeline .dot.code { background: var(--ink-3); }
-.bx-pipeline .dot.veto { background: var(--sig-red); }
-.bx-pipeline .stage.working .dot { animation: bx-pulse 1.15s ease-in-out infinite; }
-.bx-pipeline .stage.working:nth-child(1) .dot { animation-delay: 0s; }
-.bx-pipeline .stage.working:nth-child(2) .dot { animation-delay: 0.13s; }
-.bx-pipeline .stage.working:nth-child(3) .dot { animation-delay: 0.26s; }
-.bx-pipeline .stage.working:nth-child(4) .dot { animation-delay: 0.39s; }
-.bx-pipeline .txt { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
-.bx-pipeline .name { font-size: 13.5px; font-weight: 500; color: var(--ink); }
-.bx-pipeline .role { font-size: 12px; line-height: 1.45; color: var(--ink-3); }
-.bx-pipeline .why { font-size: 12px; line-height: 1.45; color: var(--ink-2); margin-top: 3px; }
-.bx-pipeline .why.veto { color: var(--sig-red); }
-.bx-pipeline .tag {
-  font-size: 11px; color: var(--ink-3); white-space: nowrap; margin-top: 3px;
-  font-variant-numeric: tabular-nums;
-}
-.bx-pipeline .tag em { font-style: normal; }
-
+/* Pulse used by the demo stepper's active timeline node. */
 @keyframes bx-pulse {
   0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(46,92,232,0.40); }
   50% { transform: scale(1.35); box-shadow: 0 0 0 5px rgba(46,92,232,0); }
 }
-
-/* Compact agent status for the phone. */
-.m-pipeline {
-  display: flex; align-items: center; gap: 10px; padding: 11px 14px; margin-bottom: 16px;
-  background: #fdfcfa; border: 1px solid var(--line); border-radius: 14px;
-}
-.m-pipeline .txt { font-size: 12px; line-height: 1.4; color: var(--ink-2); }
-.m-pipeline .dots { display: flex; gap: 4px; flex-shrink: 0; }
-.m-pipeline .dots span {
-  width: 7px; height: 7px; border-radius: 50%; background: var(--blue);
-  animation: bx-pulse 1.15s ease-in-out infinite;
-}
-.m-pipeline .dots span:nth-child(2) { animation-delay: 0.13s; }
-.m-pipeline .dots span:nth-child(3) { animation-delay: 0.26s; }
-.m-pipeline.done .dots span { background: var(--green); animation: none; box-shadow: none; }
 
 .bx-edit {
   width: 100%; resize: vertical; margin-top: 4px;
@@ -599,31 +535,86 @@ body { padding: 0; overflow: hidden; background: var(--cream); }
 }
 .desk-body { flex: 1; min-height: 0; }
 
-/* Each column scrolls on its own. */
+/* Each column scrolls on its own. The note panel holds a scrolling body with a
+   footer pinned beneath it, so the note actions stay in reach while the note
+   text moves under them. */
 .note-panel {
   margin: 0; border-radius: 0; border-top: none; border-bottom: none;
-  overflow-y: auto; min-height: 0;
+  overflow: hidden; min-height: 0; padding: 0;
+}
+.note-scroll {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: 34px 44px 0;
 }
 .rail-panel { margin: 0 14px 0 14px; min-height: 0; }
 .rail-scroll { overflow-y: auto; min-height: 0; }
 
-/* The note footer should scroll with the note, not pin to the viewport. */
-.note-panel .note-footer { margin-top: 40px; }
+/* Footer pinned to the bottom of the note panel, not scrolling with the note. */
+.note-panel .note-footer {
+  margin: 0; flex-shrink: 0;
+  padding: 16px 44px;
+  background: #fdfcfa; border-top: 1px solid var(--line);
+}
 
 /* iOS route: phones centred, page scrolls if the viewport is short. */
 .phones { padding: 24px 20px 40px; overflow-y: auto; flex: 1; min-height: 0; align-items: flex-start; }
 
 /* Thin, unobtrusive scrollbars inside the panels. */
-.note-panel::-webkit-scrollbar, .rail-scroll::-webkit-scrollbar, .phones::-webkit-scrollbar { width: 10px; }
-.note-panel::-webkit-scrollbar-thumb,
+.note-scroll::-webkit-scrollbar, .rail-scroll::-webkit-scrollbar, .phones::-webkit-scrollbar { width: 10px; }
+.note-scroll::-webkit-scrollbar-thumb,
 .rail-scroll::-webkit-scrollbar-thumb,
 .phones::-webkit-scrollbar-thumb {
   background: var(--line-2); border-radius: 999px;
   border: 3px solid transparent; background-clip: content-box;
 }
-.note-panel::-webkit-scrollbar-thumb:hover,
+.note-scroll::-webkit-scrollbar-thumb:hover,
 .rail-scroll::-webkit-scrollbar-thumb:hover,
 .phones::-webkit-scrollbar-thumb:hover { background: var(--ink-3); background-clip: content-box; }
+
+/* BoardX tab notification count — a live indicator that pulses while items await action. */
+.rtab .bxbadge { animation: bx-badge-pulse 1.7s ease-in-out infinite; }
+@keyframes bx-badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(179, 38, 30, 0.45); }
+  50% { box-shadow: 0 0 0 5px rgba(179, 38, 30, 0); }
+}
+
+/* Demo stepper — advance the case one event at a time, with a clock and a forward arrow. */
+.bx-stepper {
+  border: 1px dashed var(--line-2); border-radius: 14px;
+  padding: 14px 18px 16px; background: #fdfcfa;
+}
+.bx-stepper-top { display: flex; align-items: center; gap: 12px; margin-bottom: 13px; }
+.bx-stepper .clock {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 15px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.bx-stepper .clock i { font-size: 16px; color: var(--ink-2); }
+.bx-stepper .track { display: inline-flex; align-items: center; gap: 7px; }
+.bx-stepper .track .node {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: transparent; border: 1.5px solid var(--line-2);
+}
+.bx-stepper .track .node.on { background: var(--ink); border-color: var(--ink); }
+.bx-stepper .track .node.next {
+  background: var(--blue); border-color: var(--blue);
+  animation: bx-pulse 1.15s ease-in-out infinite;
+}
+.bx-stepper .lbl {
+  margin-left: auto; font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.bx-step-fwd {
+  width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
+  font-size: 15px; font-weight: 500; padding: 12px 22px; border-radius: 999px;
+  border: none; background: var(--dark); color: #fff;
+}
+.bx-step-fwd:disabled { opacity: 0.55; cursor: default; }
+.bx-step-fwd .when b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.bx-step-fwd i { font-size: 18px; }
+.bx-stepper-msg { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.5; }
+.bx-stepper-msg i { font-size: 16px; margin-top: 1px; flex-shrink: 0; }
+.bx-stepper-msg.wait { color: var(--amber-ink); }
+.bx-stepper-msg.done { color: var(--green); align-items: center; }
 
 /* ============ iOS FRAME SIZING ============
    The mockup gives .screen a min-height, so each frame grows to fit whatever it
@@ -659,3 +650,30 @@ body { padding: 0; overflow: hidden; background: var(--cream); }
 .m-scroll::-webkit-scrollbar-thumb:hover {
   background: var(--ink-3); background-clip: content-box;
 }
+
+/* ============ PERSISTENT DEMO BAR ============
+   The stepper used to sit at the bottom of the BoardX rail, which meant
+   scrolling past the brief, the signals, the sent thread and the handoff to
+   reach the button that advances the demo. It is the demo's control surface,
+   not part of the patient's chart, so it belongs above the frame where it stays
+   visible and the next action is always one click away. */
+
+.demo-bar {
+  flex-shrink: 0;
+  background: var(--cream-2);
+  border-bottom: 1px solid var(--line-2);
+  padding: 10px 20px;
+}
+.demo-bar .bx-stepper {
+  margin: 0; border: none; background: transparent; padding: 0;
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+}
+.demo-bar .bx-stepper-top { margin: 0; flex-shrink: 0; }
+.demo-bar .bx-stepper-msg { margin: 0; }
+.demo-bar .bx-step-fwd { margin: 0; }
+
+.bx-stepper-reset {
+  margin-left: 12px; background: none; border: none; padding: 0;
+  font-size: 12px; color: var(--ink-3); text-decoration: underline;
+}
+.bx-stepper-reset:hover { color: var(--ink); }

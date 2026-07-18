@@ -2,36 +2,13 @@
 
 import { useState } from "react";
 import { boardingDuration, formatTime } from "@/lib/evaluator";
-import type { ActionDraft, AgentTrace, PatientState, SafetySignal } from "@/lib/types";
+import type { ActionDraft, PatientState, SafetySignal } from "@/lib/types";
 import { EvidenceDrawer } from "./evidence-drawer";
 
-/**
- * The agents that run on one posted event, in pipeline order. `kind` is what
- * each runs on — a Claude call or the code-only safety gate — and `role` is the
- * one-line job shown in the pipeline panel so it is clear what each agent does.
- * Mirrors the orchestrator and the README "The agents" table.
- */
-const PIPELINE: { label: string; kind: "claude" | "code"; role: string }[] = [
-  {
-    label: "Change Interpreter",
-    kind: "claude",
-    role: "Decides whether the new panel is a meaningful change for this patient",
-  },
-  {
-    label: "Open-Loop Finder",
-    kind: "claude",
-    role: "Scans the plan for unresolved items — runs in parallel",
-  },
-  {
-    label: "Safety & Evidence Layer",
-    kind: "code",
-    role: "Verifies every citation and blocks unsafe phrasing",
-  },
-  {
-    label: "Action Drafting Helper",
-    kind: "claude",
-    role: "Drafts the secure-chat message to the admitting team",
-  },
+/** The demo's chart events, in the order the case runs. Drives the stepper. */
+const STEPS: { key: "escalation" | "cta-result"; time: string; label: string; id: string }[] = [
+  { key: "escalation", time: "04:35", label: "Respiratory trend", id: "evt-vitals-escalation" },
+  { key: "cta-result", time: "05:38", label: "Final CTA read", id: "evt-cta-final" },
 ];
 
 /**
@@ -104,8 +81,9 @@ export function BoardXRail({
   state: PatientState;
   actions: BoardXActions;
 }) {
-  const { busy, escalationPosted, escalationAcknowledged, ctaPosted, postEvent, acknowledge, decide, reset } =
-    actions;
+  // Posting and resetting live in the persistent demo bar above the frame; the
+  // rail only renders the patient's state and the two clinical decisions on it.
+  const { busy, acknowledge, decide } = actions;
   const [drawerFor, setDrawerFor] = useState<string[] | null>(null);
   const [editing, setEditing] = useState(false);
 
@@ -248,55 +226,6 @@ export function BoardXRail({
         </div>
       ))}
 
-      {(busy || state.trace.length > 0) && (
-        <AgentPipeline running={busy} trace={state.trace} />
-      )}
-
-      {!ctaPosted && (
-        <div className="bx-demo">
-          <div className="lbl">Demo control · step {escalationPosted ? "2 of 2" : "1 of 2"}</div>
-          {!escalationPosted ? (
-            <>
-              <p>
-                Story is current. Post the 04:35 respiratory trend to run the agents over it.
-              </p>
-              <button
-                className="pill-dark"
-                onClick={() => postEvent("escalation")}
-                disabled={busy}
-              >
-                {busy ? "Agents running…" : "Post 04:35 respiratory trend"}
-              </button>
-            </>
-          ) : !escalationAcknowledged ? (
-            <p className="waiting">
-              Acknowledge the escalation above. Medicine then orders the CTA, and its final
-              read becomes the next event.
-            </p>
-          ) : (
-            <>
-              <p>
-                CTA ordered at 04:39. Post its 05:38 final read — the result that changes the
-                admission.
-              </p>
-              <button
-                className="pill-dark"
-                onClick={() => postEvent("cta-result")}
-                disabled={busy}
-              >
-                {busy ? "Agents running…" : "Post 05:38 final CTA result"}
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
-      {escalationPosted && (
-        <button className="bx-reset" onClick={reset} disabled={busy}>
-          Reset demo
-        </button>
-      )}
-
       {drawerFor && (
         <EvidenceDrawer
           refs={drawerFor.map((id) => state.evidence[id]).filter(Boolean)}
@@ -308,101 +237,90 @@ export function BoardXRail({
 }
 
 /**
- * Makes the agents visible. This panel is the answer to "is anything happening?"
- *
- *  - running:  each agent shown live with a pulsing marker while the pipeline runs.
- *  - complete: the real trace — what each agent produced, whether it ran on Claude
- *              or fell back to code, and (in detail) how long it took and why.
- *
- * The trace it renders is the orchestrator's own, so the panel cannot claim an
- * agent ran on Claude when it actually fell back — a stage that fell back is
- * tagged `fallback`, and one the safety layer overrode is marked vetoed.
+ * Steps the demo through its events one at a time. Shows the current chart time
+ * and a forward arrow that posts the next event; between the two events it holds
+ * until the clinician acknowledges the escalation — which is what makes Medicine
+ * order the CTA — so the arrow never runs ahead of the clinical loop.
  */
-function AgentPipeline({ running, trace }: { running: boolean; trace: AgentTrace[] }) {
-  const done = !running && trace.length > 0;
+export function DemoStepper({
+  state,
+  actions,
+}: {
+  state: PatientState;
+  actions: BoardXActions;
+}) {
+  const { busy, escalationPosted, escalationAcknowledged, ctaPosted, postEvent, reset } = actions;
+  // The chart clock: the latest event actually on the chart. ISO strings sort
+  // chronologically, so a max by string is a max by time.
+  const currentTime = formatTime(
+    state.events.reduce(
+      (latest, e) => (e.timestamp > latest ? e.timestamp : latest),
+      state.events[0]?.timestamp ?? state.now,
+    ),
+  );
+
+  const nextIndex = !escalationPosted ? 0 : !ctaPosted ? 1 : -1;
+  const next = nextIndex >= 0 ? STEPS[nextIndex] : null;
+  // Step two waits on acknowledging step one.
+  const gated = nextIndex === 1 && !escalationAcknowledged;
+  const done = ctaPosted;
 
   return (
-    <div className="bx-pipeline">
-      <div className="bx-pipeline-h">
-        <span className="lbl">
-          <i className="ti ti-topology-star-3" /> BoardX agents
+    <div className="bx-stepper">
+      <div className="bx-stepper-top">
+        <span className="clock">
+          <i className="ti ti-clock-hour-4" /> {currentTime}
         </span>
-        <span className={`state ${running ? "run" : done ? "done" : ""}`}>
-          {running ? "Working…" : done ? "Complete" : "Ready"}
-        </span>
-      </div>
-
-      <div className="bx-pipeline-stages">
-        {running &&
-          PIPELINE.map((stage) => (
-            <Stage
-              key={stage.label}
-              kind={stage.kind}
-              name={stage.label}
-              role={stage.role}
-              working
-              tag={stage.kind === "claude" ? "Claude" : "code"}
-            />
-          ))}
-
-        {done &&
-          PIPELINE.map((stage) => {
-            const hit = trace.find((t) => t.label === stage.label);
-            const vetoed = trace.some((t) => t.label === stage.label && t.vetoed?.length);
-            const ranOnClaude = hit?.source === "claude";
+        <span className="track">
+          {STEPS.map((s, i) => {
+            const posted = state.events.some((e) => e.id === s.id);
             return (
-              <Stage
-                key={stage.label}
-                kind={stage.kind === "claude" && !ranOnClaude ? "code" : stage.kind}
-                name={stage.label}
-                role={stage.role}
-                veto={vetoed}
-                tag={stage.kind === "code" ? "code" : ranOnClaude ? "Claude" : "fallback"}
+              <span
+                key={s.key}
+                className={`node ${posted ? "on" : ""} ${
+                  i === nextIndex && !gated ? "next" : ""
+                }`}
+                title={`${s.time} · ${s.label}`}
               />
             );
           })}
-
+        </span>
+        <span className="lbl">Demo timeline</span>
+        {(escalationPosted || ctaPosted) && (
+          <button className="bx-stepper-reset" onClick={reset} disabled={busy}>
+            Reset
+          </button>
+        )}
       </div>
-    </div>
-  );
-}
 
-function Stage({
-  kind,
-  name,
-  role,
-  working = false,
-  veto = false,
-  why,
-  vetoDetail,
-  tag,
-  ms,
-}: {
-  kind: "claude" | "code";
-  name: string;
-  role?: string;
-  working?: boolean;
-  veto?: boolean;
-  why?: string;
-  vetoDetail?: string[];
-  tag: string;
-  ms?: number;
-}) {
-  return (
-    <div className={`stage ${working ? "working" : "done"}`}>
-      <span className={`dot ${kind} ${veto ? "veto" : ""}`} />
-      <div className="txt">
-        <span className="name">{name}</span>
-        {role && <span className="role">{role}</span>}
-        {why && <span className="why">{why}</span>}
-        {veto && vetoDetail?.length ? (
-          <span className="why veto">vetoed: {vetoDetail.join("; ")}</span>
-        ) : null}
-      </div>
-      <span className="tag">
-        {tag}
-        {ms !== undefined && ms > 0 && <em> · {ms}ms</em>}
-      </span>
+      {done ? (
+        <div className="bx-stepper-msg done">
+          <i className="ti ti-circle-check" /> All events posted — the admission has changed.
+        </div>
+      ) : gated ? (
+        <div className="bx-stepper-msg wait">
+          <i className="ti ti-arrow-up" /> Acknowledge the escalation above — Medicine then
+          orders the CTA, and its 05:38 read becomes the next event.
+        </div>
+      ) : (
+        <button
+          className="bx-step-fwd"
+          onClick={() => next && postEvent(next.key)}
+          disabled={busy || !next}
+        >
+          {busy ? (
+            <span className="when">Agents running…</span>
+          ) : (
+            <>
+              <span className="when">
+                <b>{next?.time}</b> · {next?.label}
+              </span>
+              <i className="ti ti-arrow-right" />
+            </>
+          )}
+        </button>
+      )}
+
     </div>
   );
 }
@@ -544,8 +462,7 @@ export function BoardXMobile({
   state: PatientState;
   actions: BoardXActions;
 }) {
-  const { busy, escalationPosted, escalationAcknowledged, ctaPosted, postEvent, acknowledge, decide } =
-    actions;
+  const { busy, acknowledge, decide } = actions;
   const [message, setMessage] = useState<string | null>(null);
 
   // The PE signal is the one carrying a draft; the escalation is acknowledge-only.
@@ -557,10 +474,6 @@ export function BoardXMobile({
 
   return (
     <div className="m-scroll">
-      {(busy || state.trace.length > 0) && (
-        <AgentPipelineMini running={busy} trace={state.trace} />
-      )}
-
       {signal && (
         <div className="m-card m-signal">
           <div className="sh">
@@ -713,61 +626,10 @@ export function BoardXMobile({
         </div>
       )}
 
-      {!ctaPosted && (
-        <div className="bx-demo">
-          <div className="lbl">Demo · step {escalationPosted ? "2 of 2" : "1 of 2"}</div>
-          {!escalationPosted ? (
-            <>
-              <p>Post the 04:35 respiratory trend.</p>
-              <button
-                className="pill-dark"
-                onClick={() => postEvent("escalation")}
-                disabled={busy}
-              >
-                {busy ? "Agents running…" : "Post 04:35 trend"}
-              </button>
-            </>
-          ) : !escalationAcknowledged ? (
-            <p className="waiting">Acknowledge the escalation above.</p>
-          ) : (
-            <>
-              <p>CTA ordered 04:39. Post the 05:38 final read.</p>
-              <button
-                className="pill-dark"
-                onClick={() => postEvent("cta-result")}
-                disabled={busy}
-              >
-                {busy ? "Agents running…" : "Post 05:38 CTA"}
-              </button>
-            </>
-          )}
-        </div>
-      )}
 
       <div className="m-lock">
         <i className="ti ti-lock" style={{ fontSize: 12 }} /> Nothing sends without your approval
       </div>
-    </div>
-  );
-}
-
-/** Compact agent status for the phone — the same signal, room permitting. */
-function AgentPipelineMini({ running, trace }: { running: boolean; trace: AgentTrace[] }) {
-  const done = !running && trace.length > 0;
-  const claudeRan = trace.filter((t) => t.source === "claude").length;
-
-  return (
-    <div className={`m-pipeline ${done ? "done" : ""}`}>
-      <span className="dots">
-        <span />
-        <span />
-        <span />
-      </span>
-      <span className="txt">
-        {running
-          ? "BoardX agents analyzing the panel…"
-          : `${PIPELINE.length} agents ran · ${claudeRan} on Claude · citations verified`}
-      </span>
     </div>
   );
 }
