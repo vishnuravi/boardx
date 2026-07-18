@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { news2, type News2Result } from "@/lib/acuity";
 import { SideRail } from "@/components/side-rail";
-import type { Boarder } from "@/lib/types";
+import type { Boarder, NursingTask } from "@/lib/types";
 
 /**
  * Operations trackboard — every boarded patient, prioritized for review.
@@ -69,7 +70,17 @@ function median(sorted: number[]): number {
     : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
 }
 
-export function OpsBoard({ census, now }: { census: Boarder[]; now: string }) {
+export type BoardView = "care" | "nursing";
+
+export function OpsBoard({
+  census,
+  now,
+  view = "care",
+}: {
+  census: Boarder[];
+  now: string;
+  view?: BoardView;
+}) {
   const rows: Row[] = census
     .map((boarder) => ({
       boarder,
@@ -77,11 +88,6 @@ export function OpsBoard({ census, now }: { census: Boarder[]; now: string }) {
       boardedMin: minutesBoarded(boarder, now),
     }))
     .sort((a, b) => b.acuity.score - a.acuity.score || b.boardedMin - a.boardedMin);
-
-  const durations = rows.map((r) => r.boardedMin).sort((a, b) => a - b);
-  const longest = rows.reduce((max, r) => (r.boardedMin > max.boardedMin ? r : max), rows[0]);
-  const highAcuity = rows.filter((r) => r.acuity.band === "high").length;
-  const overFour = rows.filter((r) => r.boardedMin >= 240).length;
 
   return (
     <div className="stage">
@@ -99,14 +105,47 @@ export function OpsBoard({ census, now }: { census: Boarder[]; now: string }) {
             <div>
               <div className="ops-title">Boarding trackboard</div>
               <div className="ops-sub">
-                Ordered by NEWS2 acuity, then time boarded · synthetic demo census ·{" "}
+                {view === "care"
+                  ? "Ordered by NEWS2 acuity, then time boarded"
+                  : "Nursing queue — ordered by task urgency, then patient acuity"}
+                {" · synthetic demo census · "}
                 {fmtClock(now)}
               </div>
             </div>
-            <span className="ops-tag">
-              <i className="ti ti-flask" /> Simulated demo data
-            </span>
+            <div className="ops-head-right">
+              {/* Stands in for role-based login: the view a nurse would land on
+                  versus the care team's census. */}
+              <nav className="ops-views">
+                <Link href="/board" className={view === "care" ? "on" : ""}>
+                  Care team
+                </Link>
+                <Link href="/board?view=nursing" className={view === "nursing" ? "on" : ""}>
+                  Nursing
+                </Link>
+              </nav>
+              <span className="ops-tag">
+                <i className="ti ti-flask" /> Simulated demo data
+              </span>
+            </div>
           </div>
+
+          {view === "care" ? <CareView rows={rows} /> : <NursingView rows={rows} now={now} />}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CareView({ rows }: { rows: Row[] }) {
+  const durations = rows.map((r) => r.boardedMin).sort((a, b) => a - b);
+  const longest = rows.reduce((max, r) => (r.boardedMin > max.boardedMin ? r : max), rows[0]);
+  const highAcuity = rows.filter((r) => r.acuity.band === "high").length;
+  const overFour = rows.filter((r) => r.boardedMin >= 240).length;
+
+  return (
+    <>
+
 
           <div className="ops-tiles">
             <div className="ops-tile">
@@ -164,10 +203,159 @@ export function OpsBoard({ census, now }: { census: Boarder[]; now: string }) {
               a triage decision, and no patient here is a real person.
             </p>
           </div>
-          </div>
+    </>
+  );
+}
+
+/**
+ * The nursing side of the board: not who is sickest, but what to do next.
+ * Every task comes from the active orders or admission plan; the queue only
+ * orders them — STAT and overdue first, then time-due, then routine — with
+ * patient acuity as the within-tier tiebreaker.
+ */
+function NursingView({ rows, now }: { rows: Row[]; now: string }) {
+  const TIER: Record<NursingTask["urgency"], number> = { stat: 0, due: 1, routine: 2 };
+
+  const tasks = rows
+    .flatMap((row) =>
+      row.boarder.nursingTasks.map((task) => ({
+        task,
+        row,
+        overdueMin: Math.max(0, Math.round((Date.parse(now) - Date.parse(task.dueAt)) / 60_000)),
+      })),
+    )
+    .sort(
+      (a, b) =>
+        TIER[a.task.urgency] - TIER[b.task.urgency] ||
+        b.row.acuity.score - a.row.acuity.score ||
+        Date.parse(a.task.dueAt) - Date.parse(b.task.dueAt),
+    );
+
+  const doNow = tasks.filter((t) => t.task.urgency === "stat" || t.overdueMin > 0).length;
+  const hourEnd = Date.parse(now) + 60 * 60_000;
+  const dueThisHour = tasks.filter(
+    (t) => t.task.urgency !== "stat" && t.overdueMin === 0 && Date.parse(t.task.dueAt) <= hourEnd,
+  ).length;
+  const tightChecks = rows.filter((r) =>
+    r.boarder.nursingTasks.some((t) => t.kind === "monitoring" && t.urgency === "stat"),
+  ).length;
+
+  return (
+    <>
+      <div className="ops-tiles">
+        <div className="ops-tile">
+          <div className="ops-tile-label">Do now</div>
+          <div className="ops-tile-value">{doNow}</div>
+          <div className="ops-tile-note">STAT or overdue tasks</div>
+        </div>
+        <div className="ops-tile">
+          <div className="ops-tile-label">Due this hour</div>
+          <div className="ops-tile-value">{dueThisHour}</div>
+          <div className="ops-tile-note">by {fmtClock(new Date(hourEnd).toISOString())}</div>
+        </div>
+        <div className="ops-tile">
+          <div className="ops-tile-label">Tight monitoring</div>
+          <div className="ops-tile-value">{tightChecks}</div>
+          <div className="ops-tile-note">patients on STAT-cadence checks</div>
+        </div>
+        <div className="ops-tile">
+          <div className="ops-tile-label">Boarded now</div>
+          <div className="ops-tile-value">{rows.length}</div>
+          <div className="ops-tile-note">admitted, no inpatient bed</div>
         </div>
       </div>
-    </div>
+
+      <table className="ops-table">
+        <thead>
+          <tr>
+            <th className="num">#</th>
+            <th>Priority</th>
+            <th>Task</th>
+            <th>Patient</th>
+            <th>Acuity (NEWS2)</th>
+            <th>Due</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tasks.map((t, i) => (
+            <TaskRow key={t.task.id} task={t.task} row={t.row} overdueMin={t.overdueMin} rank={i + 1} />
+          ))}
+        </tbody>
+      </table>
+
+      <div className="ops-foot">
+        <p>
+          <b>Reading this queue.</b> Every task comes from an active order or the
+          documented admission plan — BoardX orders the work, it never creates it.
+          STAT and overdue tasks first, then time-due, then routine, with the
+          patient&rsquo;s NEWS2 acuity breaking ties. Verify against the chart
+          before acting; no patient here is a real person.
+        </p>
+      </div>
+    </>
+  );
+}
+
+const URGENCY_LABEL: Record<NursingTask["urgency"], string> = {
+  stat: "STAT",
+  due: "Due soon",
+  routine: "Routine",
+};
+
+const KIND_ICON: Record<NursingTask["kind"], string> = {
+  "lab-draw": "ti-test-pipe",
+  imaging: "ti-radioactive",
+  medication: "ti-pill",
+  monitoring: "ti-activity",
+  assessment: "ti-stethoscope",
+  safety: "ti-shield-check",
+  prep: "ti-checklist",
+};
+
+function TaskRow({
+  task,
+  row,
+  overdueMin,
+  rank,
+}: {
+  task: NursingTask;
+  row: Row;
+  overdueMin: number;
+  rank: number;
+}) {
+  const b = row.boarder;
+  return (
+    <tr>
+      <td className="num">{rank}</td>
+      <td>
+        <span className={`ops-urgency u-${task.urgency}`}>
+          {URGENCY_LABEL[task.urgency]}
+        </span>
+        {overdueMin > 0 && <div className="ops-overdue">overdue {overdueMin}m</div>}
+      </td>
+      <td>
+        <div className="ops-name">
+          <i className={`ti ${KIND_ICON[task.kind]} ops-kind`} /> {task.label}
+        </div>
+        {task.reason && <div className="ops-dim">{task.reason}</div>}
+      </td>
+      <td>
+        <div>{b.name}</div>
+        <div className="ops-dim">
+          {b.age} {b.sex} · {b.edBed}
+          {b.isolation ? " · isolation" : ""}
+        </div>
+      </td>
+      <td>
+        <span className={`ops-acuity band-${row.acuity.band}`} title={news2Tooltip(row.acuity)}>
+          <span className="ops-acuity-dot" />
+          {row.acuity.score} · {BAND_LABEL[row.acuity.band]}
+        </span>
+      </td>
+      <td>
+        <div className="ops-wait">{fmtClock(task.dueAt)}</div>
+      </td>
+    </tr>
   );
 }
 

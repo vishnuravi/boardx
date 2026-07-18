@@ -64,6 +64,31 @@ export const boarders: Boarder[] = [
       "Isolation bed assignment",
     ],
     reviewFlag: "Final CTA: bilateral PE with right-heart strain — no anticoagulation order visible",
+    nursingTasks: [
+      {
+        id: "task-ariane-vitals",
+        label: "Vitals + SpO₂ recheck on 6 L mask",
+        kind: "monitoring",
+        urgency: "stat",
+        dueAt: atNext("05:45"),
+        reason: "Respiratory escalation at 04:35; new PE on final CTA",
+      },
+      {
+        id: "task-ariane-labs",
+        label: "Morning labs draw — creatinine and potassium",
+        kind: "lab-draw",
+        urgency: "due",
+        dueAt: atNext("06:00"),
+        reason: "Admission plan adjusts BP medicines on each morning's labs",
+      },
+      {
+        id: "task-ariane-prone",
+        label: "Prone positioning turn, padded for scoliosis",
+        kind: "assessment",
+        urgency: "routine",
+        dueAt: atNext("06:30"),
+      },
+    ],
   },
   {
     // NEWS2 10 (high): fever, borderline pressure, new confusion.
@@ -91,6 +116,32 @@ export const boarders: Boarder[] = [
       "Repeat lactate pending",
       "Second fluid bolus response check due",
       "Blood culture ×2 collected, pending",
+    ],
+    nursingTasks: [
+      {
+        id: "task-mose-lactate",
+        label: "Draw repeat lactate",
+        kind: "lab-draw",
+        urgency: "stat",
+        dueAt: atNext("05:45"),
+        reason: "Sepsis bundle — reassessment window closing",
+      },
+      {
+        id: "task-mose-bolus",
+        label: "Post-bolus BP and heart-rate check",
+        kind: "monitoring",
+        urgency: "due",
+        dueAt: atNext("06:00"),
+        reason: "Second 500 mL bolus finished 05:30",
+      },
+      {
+        id: "task-mose-neuro",
+        label: "Repeat orientation check",
+        kind: "assessment",
+        urgency: "routine",
+        dueAt: atNext("06:40"),
+        reason: "New confusion — tracking mental status hourly",
+      },
     ],
   },
   {
@@ -121,6 +172,30 @@ export const boarders: Boarder[] = [
       "Post-transfusion hemoglobin check",
     ],
     reviewFlag: "Systolic BP 88 after first unit — reassessment due",
+    nursingTasks: [
+      {
+        id: "task-yadira-vitals",
+        label: "q15 min vitals during transfusion",
+        kind: "monitoring",
+        urgency: "stat",
+        dueAt: atNext("05:45"),
+        reason: "SBP 88 after first unit",
+      },
+      {
+        id: "task-yadira-hgb",
+        label: "Post-transfusion hemoglobin draw",
+        kind: "lab-draw",
+        urgency: "due",
+        dueAt: atNext("06:10"),
+      },
+      {
+        id: "task-yadira-unit2",
+        label: "Verify second unit crossmatch with blood bank",
+        kind: "prep",
+        urgency: "routine",
+        dueAt: atNext("06:30"),
+      },
+    ],
   },
   {
     // NEWS2 6 (medium). Scored on SpO₂ scale 1; if she carries a documented
@@ -148,6 +223,23 @@ export const boarders: Boarder[] = [
       consciousness: "alert",
     },
     openItems: ["Repeat blood gas due", "Steroid taper plan unconfirmed"],
+    nursingTasks: [
+      {
+        id: "task-otha-abg",
+        label: "Repeat blood gas draw",
+        kind: "lab-draw",
+        urgency: "due",
+        dueAt: atNext("06:00"),
+        reason: "Ordered after oxygen titration",
+      },
+      {
+        id: "task-otha-steroid",
+        label: "Methylprednisolone dose",
+        kind: "medication",
+        urgency: "routine",
+        dueAt: atNext("07:00"),
+      },
+    ],
   },
   {
     // NEWS2 5 (medium): Kussmaul-range breathing and tachycardia on the drip.
@@ -176,6 +268,24 @@ export const boarders: Boarder[] = [
       "Potassium replacement recheck due",
       "Anion gap not yet closed",
     ],
+    nursingTasks: [
+      {
+        id: "task-deja-glucose",
+        label: "Hourly glucose check",
+        kind: "monitoring",
+        urgency: "stat",
+        dueAt: atNext("05:30"),
+        reason: "q1h checks on insulin infusion — last check 04:30",
+      },
+      {
+        id: "task-deja-bmp",
+        label: "BMP draw — potassium recheck",
+        kind: "lab-draw",
+        urgency: "due",
+        dueAt: atNext("06:15"),
+        reason: "K replacement running with the infusion",
+      },
+    ],
   },
   {
     // NEWS2 2 (low). Boarding 5h on IV antibiotics.
@@ -200,6 +310,22 @@ export const boarders: Boarder[] = [
       consciousness: "alert",
     },
     openItems: ["Blood cultures pending", "Margins re-mark due this shift"],
+    nursingTasks: [
+      {
+        id: "task-braulio-trough",
+        label: "Vancomycin trough draw before next dose",
+        kind: "lab-draw",
+        urgency: "routine",
+        dueAt: atNext("07:00"),
+      },
+      {
+        id: "task-braulio-margins",
+        label: "Re-mark cellulitis margins",
+        kind: "assessment",
+        urgency: "routine",
+        dueAt: atNext("07:30"),
+      },
+    ],
   },
   {
     // NEWS2 2 (low).
@@ -224,6 +350,22 @@ export const boarders: Boarder[] = [
       consciousness: "alert",
     },
     openItems: ["RUQ ultrasound read pending", "Pain reassessment due"],
+    nursingTasks: [
+      {
+        id: "task-santos-pain",
+        label: "Pain reassessment after morphine",
+        kind: "assessment",
+        urgency: "due",
+        dueAt: atNext("06:00"),
+      },
+      {
+        id: "task-santos-npo",
+        label: "Maintain NPO — confirm no diet tray delivered",
+        kind: "prep",
+        urgency: "routine",
+        dueAt: atNext("07:00"),
+      },
+    ],
   },
   {
     // NEWS2 1 (low) but boarding 9h 30m — long-wait, low-acuity quadrant.
@@ -251,6 +393,24 @@ export const boarders: Boarder[] = [
       "Ortho consult note pending",
       "Pre-op medical clearance",
       "NPO status confirmation for possible morning OR",
+    ],
+    nursingTasks: [
+      {
+        id: "task-lourdes-preop",
+        label: "Pre-op checklist and NPO confirmation",
+        kind: "prep",
+        urgency: "due",
+        dueAt: atNext("06:30"),
+        reason: "Possible morning OR slot",
+      },
+      {
+        id: "task-lourdes-turn",
+        label: "q2h reposition — pressure injury prevention",
+        kind: "assessment",
+        urgency: "routine",
+        dueAt: atNext("06:15"),
+        reason: "84-year-old on an ED hallway stretcher 9+ hours",
+      },
     ],
   },
   {
@@ -282,6 +442,23 @@ export const boarders: Boarder[] = [
       "Heparin infusion protocol check",
     ],
     reviewFlag: "Repeat troponin rising (0.4 → 1.1) — needs cardiology review",
+    nursingTasks: [
+      {
+        id: "task-rusty-ecg",
+        label: "Repeat 12-lead ECG",
+        kind: "imaging",
+        urgency: "stat",
+        dueAt: atNext("05:45"),
+        reason: "Troponin rising 0.4 → 1.1",
+      },
+      {
+        id: "task-rusty-trop",
+        label: "Third troponin draw",
+        kind: "lab-draw",
+        urgency: "due",
+        dueAt: atNext("06:30"),
+      },
+    ],
   },
   {
     // NEWS2 0, boarding 16h 15m — the longest boarder on the census, and the
@@ -310,6 +487,23 @@ export const boarders: Boarder[] = [
       "1:1 sitter continuation",
       "Placement search — 4 facilities contacted",
       "Safety reassessment due this shift",
+    ],
+    nursingTasks: [
+      {
+        id: "task-jewel-sitter",
+        label: "1:1 sitter shift-change handoff",
+        kind: "safety",
+        urgency: "due",
+        dueAt: atNext("06:00"),
+        reason: "Continuous observation must not lapse at change of shift",
+      },
+      {
+        id: "task-jewel-safety",
+        label: "Safety reassessment and belongings check",
+        kind: "safety",
+        urgency: "routine",
+        dueAt: atNext("07:00"),
+      },
     ],
   },
 ];

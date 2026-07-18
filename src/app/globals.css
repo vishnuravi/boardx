@@ -858,3 +858,27 @@ a.vert-link.on { color: var(--ink); }
 .ops-body::-webkit-scrollbar { width: 10px; }
 .ops-body::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 999px; }
 .ops-body::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
+
+/* Role toggle + nursing task queue on the trackboard. */
+.ops-head-right { display: flex; align-items: center; gap: 12px; }
+.ops-views {
+  display: inline-flex; background: var(--cream-2); border-radius: 999px; padding: 4px;
+}
+.ops-views a {
+  font-size: 13px; padding: 5px 14px; border-radius: 999px;
+  color: var(--ink-2); text-decoration: none; border: 1px solid transparent;
+}
+.ops-views a.on { background: #fff; border-color: var(--ink); color: var(--ink); font-weight: 500; }
+
+/* Urgency chips reuse the status palette: STAT=critical, due=warning-on-amber,
+   routine=neutral. The word carries the meaning; color repeats it. */
+.ops-urgency {
+  display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+  border-radius: 999px; padding: 3px 10px; white-space: nowrap;
+}
+.ops-urgency.u-stat { background: #fbeeee; border: 1px solid #e3b6b6; color: #8c1f1f; }
+.ops-urgency.u-due { background: var(--amber-bg); border: 1px solid #e8d9b8; color: var(--amber-ink); }
+.ops-urgency.u-routine { background: #fff; border: 1px solid var(--line-2); color: var(--ink-2); }
+
+.ops-overdue { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--sig-red); }
+.ops-kind { color: var(--ink-3); font-size: 15px; margin-right: 2px; }

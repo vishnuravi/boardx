@@ -158,6 +158,31 @@ export type BoarderVitals = {
 };
 
 /**
+ * One nursing to-do for a boarded patient, derived from active orders and the
+ * admission plan — never invented by the system. The nursing view of the
+ * trackboard is a queue of these.
+ */
+export type NursingTask = {
+  id: string;
+  /** The task in task-board terms, e.g. "Draw repeat lactate". */
+  label: string;
+  kind:
+    | "lab-draw"
+    | "imaging"
+    | "medication"
+    | "monitoring"
+    | "assessment"
+    | "safety"
+    | "prep";
+  /** stat = do now; due = time-bound this hour; routine = scheduled. */
+  urgency: "stat" | "due" | "routine";
+  /** ISO 8601 — when it should happen. Overdue is computed against the clock. */
+  dueAt: string;
+  /** Why it matters now — the order or finding behind the task. */
+  reason?: string;
+};
+
+/**
  * One row on the operations trackboard. A deliberately lighter object than
  * PatientState — the board answers "who is boarding, how long, how sick, what
  * is open", not the full evidence-linked story (that lives in the workspace).
@@ -179,6 +204,8 @@ export type Boarder = {
   vitals: BoarderVitals;
   /** Unresolved items a reviewer should see — consults, checks, placements. */
   openItems: string[];
+  /** The nursing work the active orders imply, for the nursing view. */
+  nursingTasks: NursingTask[];
   /**
    * One high-priority open review item, surfaced separately because acuity
    * scores don't capture it (e.g. a rising troponin in a patient whose vitals
