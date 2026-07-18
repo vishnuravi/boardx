@@ -5,6 +5,7 @@ import Link from "next/link";
 import { boardingDuration } from "@/lib/evaluator";
 import type { PatientState } from "@/lib/types";
 import { BoardXRail, useBoardX } from "./boardx-rail";
+import { SideRail } from "./side-rail";
 
 /**
  * The Abridge clinician surfaces with BoardX added, replicating
@@ -51,13 +52,7 @@ export function Workspace({ initial }: { initial: PatientState }) {
       <div className="desktop">
         <div className="topstrip" />
         <div className="desk-body">
-          <div className="worklist-rail">
-            <div className="vert">WORKLIST</div>
-            <div className="sliders">
-              <i className="ti ti-adjustments-horizontal" />
-            </div>
-            <div className="logo">A</div>
-          </div>
+          <SideRail active="worklist" />
 
           <NotePanel state={state} />
 

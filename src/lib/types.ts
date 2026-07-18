@@ -138,6 +138,55 @@ export type AgentTrace = {
   vetoed?: string[];
 };
 
+/**
+ * Most recent vitals for a boarded patient — the inputs NEWS2 needs, no more.
+ * Everything here is synthetic demo data, like the hero case's simulated events.
+ */
+export type BoarderVitals = {
+  /** ISO 8601 — when the set was recorded. */
+  takenAt: string;
+  respRate: number;
+  spo2: number;
+  supplementalO2: boolean;
+  /** Display form of the oxygen support, e.g. "6 L mask". */
+  o2Note?: string;
+  tempC: number;
+  systolicBp: number;
+  heartRate: number;
+  /** NEWS2 collapses CVPU into one non-alert bucket; so do we. */
+  consciousness: "alert" | "altered";
+};
+
+/**
+ * One row on the operations trackboard. A deliberately lighter object than
+ * PatientState — the board answers "who is boarding, how long, how sick, what
+ * is open", not the full evidence-linked story (that lives in the workspace).
+ */
+export type Boarder = {
+  id: string;
+  name: string;
+  age: number;
+  sex: "F" | "M";
+  edBed: string;
+  service: string;
+  attending: string;
+  workingDiagnosis: string;
+  /** ISO 8601 — admission decision, start of the boarding interval. */
+  admissionDecisionAt: string;
+  /** Where the inpatient bed stands, in ops terms. */
+  bedStatus: string;
+  isolation?: boolean;
+  vitals: BoarderVitals;
+  /** Unresolved items a reviewer should see — consults, checks, placements. */
+  openItems: string[];
+  /**
+   * One high-priority open review item, surfaced separately because acuity
+   * scores don't capture it (e.g. a rising troponin in a patient whose vitals
+   * score zero).
+   */
+  reviewFlag?: string;
+};
+
 /** Shared state, rebuilt after every event. */
 export type PatientState = {
   patient: {

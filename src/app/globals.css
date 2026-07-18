@@ -712,3 +712,149 @@ body { padding: 0; overflow: hidden; background: var(--cream); }
 .bx-brief { padding: 14px 18px; margin-bottom: 16px; }
 .bx-brief .lbl { margin-bottom: 10px; }
 .bx-brief dd { margin-bottom: 10px; font-size: 14px; }
+/* ============ OPERATIONS TRACKBOARD (/board) ============ */
+/* Status colors follow the dataviz status palette — reserved for state, always
+   paired with a text label, never identity-by-color-alone. */
+.ops {
+  background: var(--cream);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(30,28,22,0.10);
+  border: 1px solid #dcd9d0;
+}
+.ops-body { padding: 26px 30px 22px; }
+
+.ops-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.ops-title { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
+.ops-sub { font-size: 13px; color: var(--ink-3); margin-top: 3px; }
+.ops-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 500; color: var(--amber-ink);
+  background: var(--amber-bg); border: 1px solid #e8d9b8;
+  border-radius: 999px; padding: 5px 12px; white-space: nowrap;
+}
+
+.ops-tiles {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+  margin: 20px 0 18px;
+}
+.ops-tile {
+  background: #fdfcfa; border: 1px solid var(--line);
+  border-radius: 10px; padding: 14px 16px 12px; min-width: 0;
+}
+.ops-tile-label {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.ops-tile-value { font-size: 30px; font-weight: 600; letter-spacing: -0.02em; margin-top: 4px; }
+.ops-tile-of { font-size: 17px; font-weight: 500; color: var(--ink-3); }
+.ops-tile-note {
+  font-size: 12px; color: var(--ink-2); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.ops-table {
+  width: 100%; border-collapse: collapse;
+  background: #fdfcfa; border: 1px solid var(--line); border-radius: 10px;
+  overflow: hidden; font-size: 13.5px;
+}
+.ops-table th {
+  text-align: left; font-size: 11.5px; font-weight: 600; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--ink-3);
+  padding: 11px 14px; border-bottom: 1px solid var(--line-2);
+  background: var(--cream);
+}
+.ops-table td {
+  padding: 12px 14px; border-bottom: 1px solid var(--line);
+  vertical-align: top; line-height: 1.45;
+}
+.ops-table tbody tr:last-child td { border-bottom: none; }
+.ops-table tbody tr:hover td { background: #f6f4ee; }
+.ops-table .num { width: 34px; color: var(--ink-3); font-weight: 500; text-align: right; }
+
+.ops-name { font-weight: 600; }
+.ops-dim { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+
+/* Acuity chip: dot + score + band word. The word carries the meaning; the
+   color repeats it. */
+.ops-acuity {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-weight: 600; font-size: 13px;
+  border: 1px solid var(--line-2); border-radius: 999px;
+  padding: 3px 11px 3px 9px; cursor: help; white-space: nowrap;
+}
+.ops-acuity-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
+.ops-acuity.band-high { border-color: #e3b6b6; background: #fbeeee; color: #8c1f1f; }
+.ops-acuity.band-high .ops-acuity-dot { background: #d03b3b; }
+.ops-acuity.band-medium { border-color: #eccab8; background: #fcf1ea; color: #7c3a1d; }
+.ops-acuity.band-medium .ops-acuity-dot { background: #ec835a; }
+.ops-acuity.band-low-medium { border-color: #e8d9b8; background: var(--amber-bg); color: var(--amber-ink); }
+.ops-acuity.band-low-medium .ops-acuity-dot { background: #fab219; }
+.ops-acuity.band-low { color: var(--ink-2); background: #fff; }
+
+.ops-flag {
+  display: flex; align-items: baseline; gap: 6px;
+  font-size: 12.5px; font-weight: 500; color: var(--sig-red);
+  background: var(--sig-red-bg); border: 1px solid var(--sig-red-line);
+  border-radius: 7px; padding: 5px 9px; margin-top: 6px; max-width: 340px;
+}
+.ops-flag i { flex-shrink: 0; position: relative; top: 1px; }
+
+.ops-wait { font-variant-numeric: tabular-nums; }
+.ops-wait.long { font-weight: 600; }
+
+/* Duration meter: severity fill on a lighter step of the same hue, so state
+   reads across the whole track. */
+.ops-meter {
+  width: 108px; height: 6px; border-radius: 999px; margin-top: 6px;
+  overflow: hidden; position: relative;
+}
+.ops-meter span { display: block; height: 100%; border-radius: 999px; }
+.ops-meter.dur-ok { background: #cde2fb; }
+.ops-meter.dur-ok span { background: #2a78d6; }
+.ops-meter.dur-warn { background: #fdeec9; }
+.ops-meter.dur-warn span { background: #fab219; }
+.ops-meter.dur-serious { background: #fbe3d9; }
+.ops-meter.dur-serious span { background: #ec835a; }
+.ops-meter.dur-critical { background: #f6d8d8; }
+.ops-meter.dur-critical span { background: #d03b3b; }
+
+.ops-open {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 24px; height: 24px; padding: 0 7px;
+  border-radius: 999px; background: var(--cream-2); border: 1px solid var(--line-2);
+  font-weight: 600; font-size: 12.5px; cursor: help;
+}
+
+.ops-foot { margin-top: 14px; }
+.ops-foot p { font-size: 12.5px; color: var(--ink-2); line-height: 1.6; max-width: 880px; }
+.ops-foot b { color: var(--ink); }
+
+/* Left-rail tabs: WORKLIST above DASHBOARD, vertical like the mockup label.
+   The active surface wears full ink; the other is muted and links across. */
+.vert-tabs {
+  position: absolute; top: 26px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 22px;
+}
+.vert-tabs .vert { position: static; transform: none; }
+a.vert-link { text-decoration: none; cursor: pointer; color: var(--ink-3); }
+a.vert-link:hover { color: var(--blue); }
+a.vert-link.on { color: var(--ink); }
+
+.ops-shell { display: flex; }
+.ops-shell .ops-body { flex: 1; min-width: 0; }
+
+/* Ops trackboard under the full-viewport layout: the frame fills the window
+   like the workspace does, and the board column is its own scroll region —
+   body scroll is locked globally, so without this the census is unreachable
+   below the fold. */
+.ops {
+  flex: 1; min-height: 0;
+  border-radius: 0; border: none; box-shadow: none;
+  display: flex; flex-direction: column;
+}
+.ops-shell { flex: 1; min-height: 0; }
+.ops-body { overflow-y: auto; min-height: 0; }
+.ops-body::-webkit-scrollbar { width: 10px; }
+.ops-body::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 999px; }
+.ops-body::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
