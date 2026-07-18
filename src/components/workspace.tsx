@@ -145,7 +145,9 @@ function NotePanel({ state }: { state: PatientState }) {
         {note.noteType} <i className="ti ti-chevron-down" />
       </div>
 
-      <div className="sec">
+      {/* Anchor target for the board's patient links — landing on the chart
+          means landing on why they are in the ED. */}
+      <div className="sec" id="hpi">
         <div className="sec-h">
           History of Present Illness <i className="ti ti-copy" />
         </div>

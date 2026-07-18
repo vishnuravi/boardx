@@ -47,6 +47,7 @@ export const boarders: Boarder[] = [
     admissionDecisionAt: at("23:28"),
     bedStatus: "Awaiting isolation bed",
     isolation: true,
+    chartHref: "/#hpi",
     vitals: {
       takenAt: atNext("04:35"),
       respRate: 28,

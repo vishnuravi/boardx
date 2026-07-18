@@ -1,25 +1,7 @@
 import Link from "next/link";
 import { news2, type News2Result } from "@/lib/acuity";
 import { SideRail } from "@/components/side-rail";
-import { WORKSPACE_PATIENT_ID } from "@/data/ariane-runolfsson";
 import type { Boarder, NursingTask } from "@/lib/types";
-
-/**
- * A patient's name in the census.
- *
- * Only Ariane has a workspace behind her, so only her row navigates. The rest
- * render as text: a link that opened somebody else's chart would be a worse
- * failure than a row that does not move.
- */
-function BoarderName({ boarder }: { boarder: Boarder }) {
-  if (boarder.id !== WORKSPACE_PATIENT_ID) return <>{boarder.name}</>;
-  return (
-    <Link href="/" className="ops-open" title={`Open ${boarder.name}'s workspace`}>
-      {boarder.name}
-      <i className="ti ti-arrow-right" />
-    </Link>
-  );
-}
 
 /**
  * Operations trackboard — every boarded patient, prioritized for review.
@@ -358,11 +340,7 @@ function TaskRow({
         {task.reason && <div className="ops-dim">{task.reason}</div>}
       </td>
       <td>
-        <div><BoarderName boarder={b} /></div>
-        <div className="ops-dim">
-          {b.age} {b.sex} · {b.edBed}
-          {b.isolation ? " · isolation" : ""}
-        </div>
+        <PatientCell b={b} />
       </td>
       <td>
         <span className={`ops-acuity band-${row.acuity.band}`} title={news2Tooltip(row.acuity)}>
@@ -377,6 +355,31 @@ function TaskRow({
   );
 }
 
+/**
+ * Patient identity on a board row — a link into the chart (landing on the
+ * HPI) when a chart exists behind the row, plain text otherwise.
+ */
+function PatientCell({ b }: { b: Boarder }) {
+  const meta = (
+    <div className="ops-dim">
+      {b.age} {b.sex} · {b.edBed}
+      {b.isolation ? " · isolation" : ""}
+    </div>
+  );
+  return (
+    <>
+      {b.chartHref ? (
+        <Link href={b.chartHref} className="ops-name ops-chartlink" title="Open chart — HPI">
+          {b.name} <i className="ti ti-arrow-up-right" />
+        </Link>
+      ) : (
+        <div className="ops-name">{b.name}</div>
+      )}
+      {meta}
+    </>
+  );
+}
+
 function BoarderRow({ row, rank }: { row: Row; rank: number }) {
   const { boarder: b, acuity, boardedMin } = row;
   const dBand = durationBand(boardedMin);
@@ -388,11 +391,7 @@ function BoarderRow({ row, rank }: { row: Row; rank: number }) {
     <tr>
       <td className="num">{rank}</td>
       <td>
-        <div className="ops-name"><BoarderName boarder={b} /></div>
-        <div className="ops-dim">
-          {b.age} {b.sex} · {b.edBed}
-          {b.isolation ? " · isolation" : ""}
-        </div>
+        <PatientCell b={b} />
       </td>
       <td>
         <span className={`ops-acuity band-${acuity.band}`} title={news2Tooltip(acuity)}>

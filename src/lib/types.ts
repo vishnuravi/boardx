@@ -220,6 +220,12 @@ export type Boarder = {
   /** The nursing work the active orders imply, for the nursing view. */
   nursingTasks: NursingTask[];
   /**
+   * Where this patient's chart opens from the board. Only set when a full
+   * PatientState exists behind the row — the census's other patients are
+   * board-level fixtures with no chart to open.
+   */
+  chartHref?: string;
+  /**
    * One high-priority open review item, surfaced separately because acuity
    * scores don't capture it (e.g. a rising troponin in a patient whose vitals
    * score zero).

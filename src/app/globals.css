@@ -903,17 +903,6 @@ a.vert-link.on { color: var(--ink); }
 .bx-autosent .pending { color: var(--amber-ink); }
 .bx-autosent .pending i { color: var(--amber-ink); }
 
-/* A census row that opens a workspace. Only Ariane has one, so the affordance
-   appears on exactly one row — the arrow is what distinguishes a name you can
-   follow from a name that is only a name. */
-.ops-open {
-  display: inline-flex; align-items: center; gap: 5px;
-  color: var(--blue); text-decoration: none; font-weight: 500;
-}
-.ops-open i { font-size: 13px; opacity: 0; transition: opacity 0.12s, transform 0.12s; transform: translateX(-2px); }
-.ops-open:hover { text-decoration: underline; }
-.ops-open:hover i { opacity: 1; transform: translateX(0); }
-.ops-table tbody tr:hover .ops-open i { opacity: 0.6; transform: translateX(0); }
 .patient-bar .stage-link.alt { margin-left: 0; }
 
 /* A notification the demo has moved past: one line, still openable. */
@@ -942,3 +931,18 @@ a.vert-link.on { color: var(--ink); }
   font-size: 12.5px; color: var(--ink-3);
 }
 .bx-collapse-back:hover { color: var(--ink); }
+/* Patient names that open a chart, landing on the HPI. Only rows with a real
+   PatientState behind them get the link — the arrow is what distinguishes a
+   name you can follow from a name that is only a name. */
+a.ops-chartlink { display: inline-block; color: inherit; text-decoration: none; }
+a.ops-chartlink:hover { color: var(--blue); text-decoration: underline; }
+a.ops-chartlink i {
+  font-size: 12px; color: var(--ink-3);
+  opacity: 0.45; transition: opacity 0.12s;
+}
+a.ops-chartlink:hover i { color: var(--blue); opacity: 1; }
+.ops-table tbody tr:hover .ops-chartlink i { opacity: 1; }
+
+/* Land the board's chart links with the HPI heading visible, not flush under
+   the panel edge. */
+.sec[id] { scroll-margin-top: 14px; }
