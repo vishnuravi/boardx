@@ -38,75 +38,75 @@ type Rule = {
 };
 
 const num = (v: unknown): number | null => (typeof v === "number" ? v : null);
-const list = (v: unknown): string[] => (Array.isArray(v) ? (v as string[]) : []);
 
 /**
- * A conditional medication continuation whose condition has changed.
+ * Respiratory status worsening enough to warrant reassessment.
  *
- * This is the signal class the boarding interval produces: the admission plan
- * continues a home medication *contingent on* something ("as labs allow",
- * "review daily against renal function"), the contingency then moves, and the
- * daily review that would catch it belongs to a team the patient hasn't
- * physically reached yet.
+ * Deliberately narrow: it fires when the oxygen *requirement* rises and
+ * saturation falls anyway. A saturation dip at unchanged support is the trend
+ * the current plan already anticipates, and raising it would be the alert noise
+ * this product exists to avoid — the 02:40 check is exactly that case.
  *
- * The gate is narrow on purpose. It fires only when renal function has
- * genuinely worsened against the value the plan was written on, a
- * renally-sensitive medication is still active, and nobody has acknowledged it.
+ * The signal is acknowledge-only. BoardX reports the change and asks the team
+ * to reassess; it does not name a cause or suggest imaging, because that would
+ * be the diagnosis it must not make (demo-case-ctpa-pe.md §"Safety boundary").
  */
-const conditionalMedVsRenalFunction: Rule = {
-  id: "conditional-med-vs-renal-function",
+const respiratoryEscalation: Rule = {
+  id: "respiratory-escalation",
   evaluate: (event, state) => {
-    if (event.type !== "lab") return null;
+    if (event.type !== "vitals") return null;
 
-    const gfr = num(event.data?.gfr);
-    if (gfr === null) return null;
+    const spo2 = num(event.data?.spo2);
+    const o2 = num(event.data?.oxygenLpm);
+    const rr = num(event.data?.respRate);
+    if (spo2 === null || o2 === null) return null;
 
-    // Compare against the panel this one supersedes, not merely the last event.
     const priorId = event.data?.supersedesEventId as string | undefined;
     const prior = state.events.find((e) => e.id === priorId);
-    const priorGfr = num(prior?.data?.gfr);
-    if (priorGfr === null) return null;
+    const priorSpo2 = num(prior?.data?.spo2);
+    const priorO2 = num(prior?.data?.oxygenLpm);
+    const priorRr = num(prior?.data?.respRate);
+    if (priorSpo2 === null || priorO2 === null) return null;
 
-    // Worsening only. An improving GFR is good news, not a signal.
-    if (gfr >= priorGfr) return null;
+    const desaturating = spo2 < priorSpo2;
+    const needingMoreOxygen = o2 > priorO2;
 
-    // Is a renally-sensitive medication still active and not held?
-    const orderEvent = [...state.events]
-      .reverse()
-      .find((e) => e.type === "order" && e.data?.renallySensitiveActive !== undefined);
-    const held = list(orderEvent?.data?.heldMedications);
-    const atRisk = list(orderEvent?.data?.renallySensitiveActive).filter(
-      (med) => !held.includes(med),
-    );
-    if (atRisk.length === 0) return null;
+    if (!desaturating) return null;
 
-    const potassium = num(event.data?.potassium);
-    const drugs = atRisk.join(", ");
+    if (!needingMoreOxygen) {
+      return {
+        suppressed: {
+          id: `sup-resp-${event.id}`,
+          ruleId: "respiratory-escalation",
+          finding: `SpO₂ ${spo2}% on ${o2} L`,
+          reason: `Oxygen requirement unchanged at ${o2} L; within the range the current plan anticipates`,
+          evidence: ["vitals-baseline", "vitals-interim"],
+          createdAt: event.timestamp,
+        },
+      };
+    }
 
-    const explanation = [
-      `The admission plan continues home ${drugs} contingent on renal function, and commits to`,
-      `reviewing antihypertensives against each morning's labs. The repeat panel shows GFR`,
-      `${gfr.toFixed(1)} mL/min, down from ${priorGfr.toFixed(1)}`,
-      potassium !== null ? `with potassium ${potassium.toFixed(2)} mmol/L.` : `.`,
-      `${drugs.charAt(0).toUpperCase() + drugs.slice(1)} is not visible as held or adjusted in the`,
-      `active order list. The patient is still boarding, so the daily review the plan describes has`,
-      `not yet occurred.`,
-    ].join(" ");
+    // Trace back to the earliest vitals in this run so the trend reads as a
+    // trend rather than a single step.
+    const first = state.events.find((e) => e.type === "vitals");
+    const fromSpo2 = num(first?.data?.spo2) ?? priorSpo2;
+    const fromO2 = num(first?.data?.oxygenLpm) ?? priorO2;
+    const fromRr = num(first?.data?.respRate) ?? priorRr;
+
+    const explanation =
+      `${state.patient.name.split(" ")[0]}'s oxygen support increased from ${fromO2} L to ` +
+      `${o2} L while SpO₂ fell from ${fromSpo2}% to ${spo2}%` +
+      (rr !== null && fromRr !== null ? ` and respiratory rate rose from ${fromRr} to ${rr}/min` : "") +
+      `. She remains boarding in the ED. Please reassess.`;
 
     return {
       signal: {
-        id: `sig-${event.id}`,
-        category: "plan-discrepancy",
-        headline:
-          "Renal function has fallen below the condition the plan set for continuing lisinopril",
+        id: `sig-resp-${event.id}`,
+        category: "escalation",
+        action: "acknowledge",
+        headline: "Respiratory status needs reassessment",
         explanation,
-        evidence: [
-          "abridge-admission",
-          "note-renal-plan",
-          "labs-admission",
-          "labs-repeat",
-          "orders-active",
-        ],
+        evidence: ["vitals-baseline", "vitals-interim", "vitals-escalation", "abridge-admission"],
         status: "needs-review",
         confidence: "high",
         triggeringEventId: event.id,
@@ -117,67 +117,80 @@ const conditionalMedVsRenalFunction: Rule = {
 };
 
 /**
- * Potassium above the reference range.
+ * A final imaging result identifying acute PE with no visible management.
  *
- * This rule exists to *not* fire on this patient, and that is the point. A
- * naive threshold check sees 5.07 mmol/L, calls it hyperkalemia, and raises a
- * card. But the value is unchanged from admission and the admission plan
- * already names potassium as something being followed — so it is neither new
- * nor unacknowledged, and the Contextual Safety Watch criteria are not met.
+ * Trigger conditions are the four in demo-case-ctpa-pe.md §"Trigger logic":
+ * the result is final and identifies acute PE, it is new relative to the
+ * admission story, no therapeutic anticoagulation or documented PE plan is
+ * visible, and every assertion has a timestamped source.
  *
- * It fires only if potassium actually rises, or if the plan never addressed it.
+ * Note the aspirin check: aspirin is antiplatelet, not anticoagulation, so its
+ * presence must not satisfy condition three. The order data models the two
+ * separately for exactly that reason.
  */
-const potassiumAboveRange: Rule = {
-  id: "potassium-above-range",
+const finalImagingPeWithoutManagement: Rule = {
+  id: "final-imaging-pe-without-management",
   evaluate: (event, state) => {
-    if (event.type !== "lab") return null;
+    if (event.type !== "imaging-final") return null;
+    if (event.data?.peIdentified !== true) return null;
 
-    const potassium = num(event.data?.potassium);
-    if (potassium === null || potassium <= 5.0) return null;
-
-    const priorId = event.data?.supersedesEventId as string | undefined;
-    const priorPotassium = num(
-      state.events.find((e) => e.id === priorId)?.data?.potassium,
+    // Is PE already part of the working story? If the admission plan named it,
+    // this is not a change.
+    const alreadyInStory = /pulmonary emboli|\bPE\b/i.test(
+      state.admissionIntent.workingDiagnosis + state.admissionIntent.plan.join(" "),
     );
+    if (alreadyInStory) return null;
 
-    const rising = priorPotassium !== null && potassium > priorPotassium;
-    const addressedInPlan = state.admissionIntent.plan.some((item) =>
-      /potassium|renal function/i.test(item),
-    );
+    const orderEvent = [...state.events]
+      .reverse()
+      .find((e) => e.type === "order" && e.data?.therapeuticAnticoagulation !== undefined);
+    const anticoagulated = orderEvent?.data?.therapeuticAnticoagulation === true;
+    const documentedPlan = orderEvent?.data?.documentedPePlan === true;
 
-    if (rising || !addressedInPlan) {
-      return {
-        signal: {
-          id: `sig-k-${event.id}`,
-          category: "critical-lab",
-          headline: "Potassium above reference range",
-          explanation:
-            `Potassium is ${potassium.toFixed(2)} mmol/L` +
-            (priorPotassium !== null ? ` (prior ${priorPotassium.toFixed(2)})` : "") +
-            `. This is not addressed in the current admission plan.`,
-          evidence: ["labs-repeat", "note-renal-plan"],
-          status: "needs-review",
-          confidence: "medium",
-          triggeringEventId: event.id,
-          createdAt: event.timestamp,
-        },
-      };
-    }
+    if (anticoagulated || documentedPlan) return null;
+
+    const strain = event.data?.rightHeartStrain === true;
+    const labs = state.events.find((e) => e.id === "evt-labs-admission");
+    const platelets = num(labs?.data?.platelets);
+
+    const explanation =
+      `Final CTA at ${formatTime(event.timestamp)} identifies acute bilateral segmental ` +
+      `pulmonary emboli${strain ? " with CT evidence of right-heart strain" : ""}, changing the ` +
+      `working explanation for ${state.patient.name.split(" ")[0]}'s worsening hypoxemia. ` +
+      `No therapeutic-anticoagulation order or documented PE-management plan is visible.`;
+
+    const context =
+      ` Review context: oxygen support increased from 4 L to 6 L while SpO₂ fell from 92% to 86%; ` +
+      `aspirin is active` +
+      (platelets !== null ? `; platelets are ${Math.round(platelets)}` : "") +
+      `.`;
 
     return {
-      suppressed: {
-        id: `sup-k-${event.id}`,
-        ruleId: "potassium-above-range",
-        finding: `potassium ${potassium.toFixed(2)}`,
-        reason: "Unchanged from admission; already flagged in the renal plan",
-        evidence: ["labs-admission", "labs-repeat", "note-renal-plan"],
+      signal: {
+        id: `sig-pe-${event.id}`,
+        category: "result-change",
+        action: "draft",
+        priority: "high",
+        headline: "Final CTA identifies acute pulmonary emboli",
+        explanation: explanation + context,
+        evidence: [
+          "cta-final",
+          "abridge-admission",
+          "vitals-escalation",
+          "orders-active",
+          "escalation-ack",
+          "labs-admission",
+        ],
+        status: "needs-review",
+        confidence: "high",
+        triggeringEventId: event.id,
         createdAt: event.timestamp,
       },
     };
   },
 };
 
-const rules: Rule[] = [conditionalMedVsRenalFunction, potassiumAboveRange];
+const rules: Rule[] = [respiratoryEscalation, finalImagingPeWithoutManagement];
 
 /**
  * Runs every rule against a newly posted event, skipping events that already
@@ -201,24 +214,36 @@ export function evaluateEvent(
 }
 
 /**
+ * Replays the gates over events already on the chart at load.
+ *
+ * The 02:40 check was evaluated and declined before the demo starts, so its
+ * suppression record is produced by actually running the rule rather than being
+ * written into the fixture by hand.
+ */
+export function bootstrapSuppressions(state: PatientState): SuppressedSignal[] {
+  return state.events.flatMap((event) => evaluateEvent(event, state).suppressed);
+}
+
+/**
  * Turns a signal into a reviewable draft. Never sent — `decision` starts
  * `pending` and only a clinician can move it.
  */
 export function draftForSignal(signal: SafetySignal, state: PatientState): ActionDraft {
   const { patient } = state;
-  const repeat = state.evidence["labs-repeat"];
-  const time = formatTime(repeat?.timestamp ?? signal.createdAt);
+  const cta = state.evidence["cta-final"];
 
   const message =
-    `${patient.name} is boarding in the ED after admission for COVID-19 pneumonia with hypoxemia. ` +
-    `Repeat metabolic panel at ${time} shows GFR 6.4 mL/min, down from 11.1 on admission, with ` +
-    `potassium 5.07. Home lisinopril 20 mg was continued pending lab review and is not visible as ` +
-    `held in active orders. Please review before transfer.`;
+    `${patient.name} remains boarding in the ED after admission for COVID pneumonia and ` +
+    `hypoxemia. Final CTA at ${formatTime(cta?.timestamp ?? signal.createdAt)} identifies acute ` +
+    `bilateral segmental pulmonary emboli with CT evidence of right-heart strain. Her oxygen ` +
+    `requirement has increased, and no therapeutic-anticoagulation order or documented ` +
+    `PE-management plan is visible. Current medications and platelet data are available for ` +
+    `review. Please review and determine management.`;
 
   return {
     id: `draft-${signal.id}`,
     signalId: signal.id,
-    recipient: patient.admittedTo,
+    recipient: `${patient.attending} · ${patient.service}`,
     message,
     decision: "pending",
   };
@@ -229,17 +254,31 @@ export function buildHandoff(state: PatientState): string {
   const acknowledged = state.signals.filter((s) => s.status === "acknowledged");
   if (acknowledged.length === 0) return state.handoff;
 
-  const notified = state.drafts
-    .filter((d) => d.decision === "approved")
-    .map((d) => `${d.recipient} notified at ${formatTime(d.decidedAt ?? state.now)}`)
-    .join("; ");
+  const parts = [
+    "81-year-old admitted for COVID-19 pneumonia with hypoxemia, boarding in the ED.",
+  ];
 
-  return [
-    "81-year-old admitted for COVID-19 pneumonia with hypoxemia. On oxygen by mask with prone positioning.",
-    "Renal function declined during boarding: GFR 11.1 to 6.4, creatinine 2.66 to 2.78, potassium 5.07.",
-    "Home lisinopril continued from admission and flagged for review against the new panel.",
-    notified ? `${notified}; plan under review.` : "Pending team review.",
-  ].join(" ");
+  if (acknowledged.some((s) => s.category === "escalation")) {
+    parts.push(
+      "Respiratory status worsened during boarding: oxygen support 4 L to 6 L, SpO₂ 92% to 86%, " +
+        `respiratory rate 22 to 28. Escalation acknowledged by ${state.patient.attending} ` +
+        `(${state.patient.service}); CTA chest ordered.`,
+    );
+  }
+
+  if (acknowledged.some((s) => s.category === "result-change")) {
+    const notified = state.drafts
+      .filter((d) => d.decision === "approved")
+      .map((d) => `${d.recipient} notified at ${formatTime(d.decidedAt ?? state.now)}`)
+      .join("; ");
+    parts.push(
+      "Final CTA identified acute bilateral segmental pulmonary emboli with right-heart strain. " +
+        "No therapeutic anticoagulation visible at time of handoff." +
+        (notified ? ` ${notified}; management decision pending clinician review.` : ""),
+    );
+  }
+
+  return parts.join(" ");
 }
 
 export function formatTime(iso: string): string {

@@ -37,7 +37,11 @@ export function EvidenceDrawer({
                 </h3>
                 <time>{formatTime(ref.timestamp)}</time>
               </div>
-              <span className="src">{ref.source}</span>
+              <span className="src">
+                {ref.source}
+                {/* Provenance boundary — see planning/demo-case-ctpa-pe.md. */}
+                {ref.simulated && <span className="sim-tag">Simulated demo event</span>}
+              </span>
               <p className="excerpt">{ref.excerpt}</p>
             </article>
           ))}

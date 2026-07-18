@@ -34,11 +34,21 @@ export type SafetyVerdict = {
   violations: string[];
 };
 
-/** Drops unresolvable evidence IDs and reports which were invented. */
-export function checkProvenance(ids: string[], state: PatientState) {
-  const valid = ids.filter((id) => Boolean(state.evidence[id]));
-  const invented = ids.filter((id) => !state.evidence[id]);
-  return { valid, invented };
+/**
+ * Drops evidence IDs that do not resolve, and reports which were invented.
+ *
+ * `visible` restricts what counts as resolvable to artifacts already on the
+ * chart. Without it, a citation to a result that has not returned yet passes
+ * provenance simply because the fixture dictionary contains it — which is how
+ * an escalation signal came to cite a CT report from a scan nobody had ordered.
+ */
+export function checkProvenance(ids: string[], state: PatientState, visible?: Set<string>) {
+  const resolves = (id: string) =>
+    Boolean(state.evidence[id]) && (visible ? visible.has(id) : true);
+  return {
+    valid: ids.filter(resolves),
+    invented: ids.filter((id) => !resolves(id)),
+  };
 }
 
 export function checkLanguage(text: string): string[] {
@@ -55,12 +65,17 @@ export function vetClaim(
   text: string,
   evidenceIds: string[],
   state: PatientState,
+  visible?: Set<string>,
 ): SafetyVerdict {
-  const { valid, invented } = checkProvenance(evidenceIds, state);
+  const { valid, invented } = checkProvenance(evidenceIds, state, visible);
   const violations = checkLanguage(text);
 
   for (const id of invented) {
-    violations.push(`unknown evidence id: ${id}`);
+    violations.push(
+      state.evidence[id]
+        ? `evidence not yet on the chart: ${id}`
+        : `unknown evidence id: ${id}`,
+    );
   }
   if (valid.length === 0) {
     violations.push("no verifiable evidence");

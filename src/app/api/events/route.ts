@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
-import { postRepeatPanel } from "@/lib/store";
+import { isPostable, postEvent } from "@/lib/store";
 
 /**
- * Posts a new event into the patient's chart. The prototype exposes exactly one
- * event — the hero scenario's repeat metabolic panel — so the demo stays on rails.
+ * Posts one of the demo's events into the patient's chart.
+ *
+ * The prototype exposes exactly two — the 04:35 respiratory escalation and the
+ * 05:38 final CTA — so the demo stays on rails.
  */
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  if (body?.event !== "repeat-panel") {
+  const event = body?.event;
+
+  if (typeof event !== "string" || !isPostable(event)) {
     return NextResponse.json({ error: "Unsupported event" }, { status: 400 });
   }
-  return NextResponse.json(await postRepeatPanel());
+  return NextResponse.json(await postEvent(event));
 }

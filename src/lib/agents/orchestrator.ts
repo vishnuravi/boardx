@@ -31,6 +31,7 @@ import type {
   SafetySignal,
   SuppressedSignal,
 } from "@/lib/types";
+import { visibleEvidenceIds } from "./context";
 import { buildStory, draftAction, findOpenLoops, interpretChange } from "./helpers";
 import type { StoryOutput } from "./schemas";
 import { vetClaim } from "./safety";
@@ -80,7 +81,10 @@ export async function orchestrateEvent(
   trace.push({ label: "Open-Loop Finder", source: loops.source, ms: loops.ms, reason: loops.reason });
 
   // Safety gate on the interpreter's prose before it can reach a clinician.
-  const verdict = vetClaim(change.value.explanation, change.value.evidence, state);
+  // Scoped to evidence on the chart at this moment, so a citation to a result
+  // that has not returned is rejected rather than silently accepted.
+  const visible = visibleEvidenceIds(state, event);
+  const verdict = vetClaim(change.value.explanation, change.value.evidence, state, visible);
   const useModelProse = change.source === "claude" && verdict.ok && change.value.isMeaningful;
 
   if (change.source === "claude" && !verdict.ok) {
@@ -114,6 +118,13 @@ export async function orchestrateEvent(
       }
     : gated[0];
 
+  // An acknowledge-only signal has nothing to draft. Running the drafter would
+  // produce a message proposing a next step, which for an escalation means
+  // naming a cause — exactly the diagnosis this product does not make.
+  if (signal.action === "acknowledge") {
+    return { signals: [signal], suppressed, drafts: [], trace };
+  }
+
   // Draft last — it depends on the finalized, vetted signal.
   const draft = await draftAction(state, signal, () => {
     const d = draftForSignal(signal, state);
@@ -123,7 +134,7 @@ export async function orchestrateEvent(
 
   // Same gate on the drafted message. Provenance is inherited from the signal,
   // so only the language check can fail here.
-  const draftVerdict = vetClaim(draft.value.message, signal.evidence, state);
+  const draftVerdict = vetClaim(draft.value.message, signal.evidence, state, visible);
   const message = draftVerdict.ok
     ? draft.value.message
     : draftForSignal(signal, state).message;

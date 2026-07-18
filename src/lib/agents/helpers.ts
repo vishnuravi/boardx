@@ -88,11 +88,14 @@ alarm costs more than a missed nicety.
 
 When it is meaningful, explain what a clinician would need to know to decide what to
 do, in two or three sentences.`,
-    prompt: `${renderPatientContext(state)}
+    prompt: `${renderPatientContext(state, event)}
 
 ${renderNewEvent(event)}
 
-Does this event represent a meaningful change requiring clinician review?`,
+Does this event represent a meaningful change requiring clinician review?
+
+Reason only from the artifacts above. Do not anticipate results that have not
+returned or describe studies that have not been performed.`,
   });
 }
 
@@ -134,8 +137,11 @@ export function draftAction(
     system: `${HOUSE_RULES}
 
 Your job: draft a secure-chat message the reviewing clinician can send after editing.
-Address the team who should look at this. State the patient, the finding, what is not
-visible in active orders, and ask them to review. Under 60 words.
+Address the named attending on the accepting service. State the patient, the finding,
+what is not visible in active orders, and ask them to review. Under 60 words.
+
+Set the recipient field to the attending and service exactly as given in the
+patient context.
 
 This is a request for review between colleagues. It is not an alert, not an
 instruction, and not an accusation. A clinician will read it before it sends.`,

@@ -16,6 +16,12 @@ export type EvidenceRef = {
   /** ISO 8601. Rendered as wall-clock time in the UI. */
   timestamp: string;
   excerpt: string;
+  /**
+   * Invented for the prototype rather than drawn from the source record.
+   * Rendered with a visible tag — see planning/demo-case-ctpa-pe.md
+   * §"Provenance boundary".
+   */
+  simulated?: boolean;
 };
 
 /** The admission story as captured in the Abridge encounter. */
@@ -50,6 +56,8 @@ export type ClinicalEvent = {
   evidence?: EvidenceRef;
   /** Structured payload the evaluators read; shape varies by event type. */
   data?: Record<string, unknown>;
+  /** Invented for the prototype. Rendered with a visible tag. */
+  simulated?: boolean;
 };
 
 export type SignalStatus = "needs-review" | "acknowledged" | "dismissed" | "deferred";
@@ -60,7 +68,27 @@ export type SignalStatus = "needs-review" | "acknowledged" | "dismissed" | "defe
  */
 export type SafetySignal = {
   id: string;
-  category: "result-change" | "critical-lab" | "vitals-trend" | "plan-discrepancy" | "open-loop";
+  category:
+    | "result-change"
+    | "critical-lab"
+    | "vitals-trend"
+    | "plan-discrepancy"
+    | "open-loop"
+    | "escalation";
+  /**
+   * What the clinician can do with this signal.
+   *
+   * `acknowledge` is the escalation case: BoardX reports a change and asks the
+   * responsible team to reassess. There is no drafted message because there is
+   * nothing to propose — naming a likely cause or suggesting imaging would be
+   * the diagnosis this product does not make.
+   *
+   * `draft` is the review case: a specific finding whose management is not
+   * visible, where a message to a named team is the reviewable next step.
+   */
+  action: "acknowledge" | "draft";
+  /** Marks the card as high-priority in the UI. */
+  priority?: "high";
   headline: string;
   explanation: string;
   evidence: string[];
@@ -118,6 +146,10 @@ export type PatientState = {
     age: number;
     edBed: string;
     admittedTo: string;
+    /** Inpatient service accepting the admission. */
+    service: string;
+    /** Named attending on that service — who the drafted message reaches. */
+    attending: string;
     /** ISO 8601 — start of the boarding interval (admission decision). */
     admissionDecisionAt: string;
   };
@@ -128,6 +160,7 @@ export type PatientState = {
     historyOfPresentIllness: string[];
     pastMedicalHistory: string[];
     medications: string[];
+    allergies: string[];
     results: string;
   };
   events: ClinicalEvent[];

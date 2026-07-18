@@ -1,26 +1,26 @@
 /**
- * Hero scenario — Ariane Runolfsson, COVID-19 pneumonia with hypoxemia.
+ * Hero scenario — Ariane Runolfsson, COVID-19 pneumonia with hypoxemia, and a
+ * final CTA that changes the admission.
  *
- * Source: `synthetic-ambient-fhir-25`, record
- * `7bd9e5b0-5d4b-f10d-9579-f4813faf9cdc::7bd9e5b0-5d4b-f10d-cb93-7fcf216727d8`
- * ("Inpatient admission — COVID-19 isolation with pneumonia and hypoxemia"),
- * the synthetic Synthea/Abridge dataset provided for the hackathon. Every lab
- * value, medication, and quoted line below is taken from that record — the
- * transcript excerpts and note text are verbatim.
+ * Specified in planning/demo-case-ctpa-pe.md. Two signals in sequence:
  *
- * Two deliberate adaptations, both about time rather than content:
+ *   04:35  respiratory escalation      → acknowledge-only, no draft
+ *   04:39  medicine acknowledges, orders CTA
+ *   05:38  final CTA identifies PE      → high-priority review, drafted message
  *
- *  1. The source encounter runs 2021-01-03 → 01-14 as a full inpatient stay.
- *     We model only the boarding interval: the admission decision at 23:18 and
- *     the hours before a bed is available.
- *  2. The source's "daily" repeat metabolic panel (dated 01-04) is placed at
- *     05:32 — a repeat BMP roughly six hours after admission is routine in a
- *     patient with this degree of renal impairment, and it lands while she is
- *     still in the ED. The values are the source's 01-04 values, unmodified.
+ * PROVENANCE BOUNDARY (demo-case-ctpa-pe.md §"Provenance boundary")
  *
- * Age note: the FHIR birthDate (1940-05-16) implies 80 at this encounter; the
- * source clinical note says 81. We follow the note, since the note is the
- * artifact quoted in evidence.
+ * The patient, history, home medications, and COVID admission come from the
+ * supplied synthetic record (`synthetic-ambient-fhir-25`, encounter
+ * 7bd9e5b0-5d4b-f10d-9579-f4813faf9cdc::7bd9e5b0-5d4b-f10d-cb93-7fcf216727d8).
+ *
+ * The vital-sign trend, the escalation, the CTA, the post-CTA order check, and
+ * the creatinine of 1.4 are invented for the prototype. They are not source
+ * data and are not represented as a real patient event. Every one of them
+ * carries `simulated: true` and renders with a "Simulated demo event" tag.
+ *
+ * Times are wall-clock. Boarding starts 23:28; the demo clock is 05:45, which
+ * makes the displayed interval 6h 17m as the case doc specifies.
  */
 
 import type { ClinicalEvent, EvidenceRef, PatientState } from "@/lib/types";
@@ -30,7 +30,7 @@ const NEXT = "2021-01-04";
 const at = (hhmm: string) => `${DAY}T${hhmm}:00-08:00`;
 const atNext = (hhmm: string) => `${NEXT}T${hhmm}:00-08:00`;
 
-export const DEMO_NOW = atNext("05:35");
+export const DEMO_NOW = atNext("05:45");
 
 export const evidence: Record<string, EvidenceRef> = {
   "abridge-admission": {
@@ -40,55 +40,86 @@ export const evidence: Record<string, EvidenceRef> = {
     source: "abridge",
     timestamp: at("23:45"),
     excerpt:
-      "DR: Medications — I have aspirin eighty-one milligrams daily, atenolol fifty, rosuvastatin " +
-      "forty, and lisinopril twenty. Is that current, nothing added or stopped? / FAMILY: That is " +
-      "exactly her pillbox. She never misses. […] DR: Her kidney numbers are the thing I most want " +
-      "to watch: the creatinine is elevated at two point seven, and the filtration estimate is quite " +
-      "low. […] we will be careful and deliberate with her blood pressure medicines while the kidneys " +
-      "recover — we will adjust based on what each morning's labs show.",
+      "81-year-old admitted from the ED for COVID-19 pneumonia, hypoxemia, and isolation. " +
+      "Five to six days of dry cough, persistent fever, poor appetite, and progressively " +
+      "worsening dyspnea. Denies chest pain resembling her prior myocardial infarction. " +
+      "Chest x-ray consistent with pneumonia. Plan: oxygen by mask titrated to saturation, " +
+      "prone positioning as tolerated, continue home aspirin, atenolol, rosuvastatin, and " +
+      "lisinopril as hemodynamics allow.",
   },
-  "note-renal-plan": {
-    id: "note-renal-plan",
-    label: "Admission note — renal assessment and plan",
-    shortLabel: "Renal plan note",
-    source: "abridge",
-    timestamp: at("23:52"),
-    excerpt:
-      "Renal function and metabolic abnormalities. Creatinine 2.66 mg/dL with GFR 11.1 mL/min, " +
-      "potassium 5.07 mmol/L, and glucose 67.23 mg/dL in the setting of fever and two days of poor " +
-      "intake. — Follow daily comprehensive metabolic panel; support hydration and oral intake. " +
-      "— Review home antihypertensives daily against renal function and potassium; adjust per lab trend.",
-  },
-  "labs-admission": {
-    id: "labs-admission",
-    label: "Admission metabolic panel",
-    shortLabel: "Admission CMP",
+  "vitals-baseline": {
+    id: "vitals-baseline",
+    label: "Respiratory baseline — 00:15",
+    shortLabel: "Resp baseline",
     source: "epic",
-    timestamp: at("23:45"),
-    excerpt:
-      "Creatinine 2.66 mg/dL. GFR (MDRD) 11.1 mL/min/1.73m². Potassium 5.07 mmol/L. " +
-      "Sodium 136.05 mmol/L. CO2 21.79 mmol/L. BUN 13.39 mg/dL. Glucose 67.23 mg/dL.",
+    timestamp: atNext("00:15"),
+    excerpt: "SpO₂ 92% on 4 L oxygen. Respiratory rate 22/min.",
+    simulated: true,
   },
-  "labs-repeat": {
-    id: "labs-repeat",
-    label: "Repeat metabolic panel",
-    shortLabel: "Repeat CMP",
+  "vitals-interim": {
+    id: "vitals-interim",
+    label: "Respiratory check — 02:40",
+    shortLabel: "Resp 02:40",
     source: "epic",
-    timestamp: atNext("05:32"),
+    timestamp: atNext("02:40"),
+    excerpt: "SpO₂ 89% on 4 L oxygen. Respiratory rate 24/min. Oxygen requirement unchanged.",
+    simulated: true,
+  },
+  "vitals-escalation": {
+    id: "vitals-escalation",
+    label: "Respiratory trend — 04:35",
+    shortLabel: "Resp trend",
+    source: "epic",
+    timestamp: atNext("04:35"),
     excerpt:
-      "Creatinine 2.78 mg/dL (prior 2.66). GFR (MDRD) 6.42 mL/min/1.73m² (prior 11.1). " +
-      "Potassium 5.07 mmol/L. Sodium 136.4 mmol/L.",
+      "SpO₂ 86% despite 6 L oxygen (was 92% on 4 L at 00:15). Respiratory rate 28/min " +
+      "(was 22/min). Oxygen support increased from 4 L to 6 L.",
+    simulated: true,
+  },
+  "escalation-ack": {
+    id: "escalation-ack",
+    label: "Escalation acknowledged; CTA ordered",
+    shortLabel: "Ack + CTA order",
+    source: "epic",
+    timestamp: atNext("04:39"),
+    excerpt:
+      "Inpatient medicine acknowledged the respiratory escalation and ordered CT angiogram " +
+      "of the chest. Order placed by the admitting clinician.",
+    simulated: true,
+  },
+  "cta-final": {
+    id: "cta-final",
+    label: "Final CTA chest report",
+    shortLabel: "Final CTA",
+    source: "epic",
+    timestamp: atNext("05:38"),
+    excerpt:
+      "FINAL: Acute bilateral segmental pulmonary emboli. CT evidence of right-heart strain " +
+      "with increased RV:LV ratio. Patchy airspace opacity consistent with known COVID-19 " +
+      "pneumonia, unchanged.",
+    simulated: true,
   },
   "orders-active": {
     id: "orders-active",
     label: "Active medication and order list",
     shortLabel: "Active orders",
     source: "epic",
-    timestamp: atNext("05:34"),
+    timestamp: atNext("05:40"),
     excerpt:
-      "lisinopril 20 mg PO daily (continued from home). aspirin 81 mg PO daily. atenolol 50 mg PO " +
-      "daily. rosuvastatin calcium 40 mg PO daily. Oxygen by mask, continuous, titrate to SpO2 >92%. " +
-      "Prone positioning as tolerated. Comprehensive metabolic panel daily.",
+      "aspirin 81 mg PO daily. atenolol 50 mg PO daily. rosuvastatin calcium 40 mg PO daily. " +
+      "lisinopril 20 mg PO daily. Oxygen by mask, titrate to saturation. Prone positioning as " +
+      "tolerated. No therapeutic anticoagulation order and no documented PE-management plan.",
+    simulated: true,
+  },
+  "labs-admission": {
+    id: "labs-admission",
+    label: "Admission labs",
+    shortLabel: "Admission labs",
+    source: "epic",
+    timestamp: at("23:45"),
+    excerpt:
+      "WBC 3.42 ×10³/µL. Platelets 136 ×10³/µL. Creatinine 1.4 mg/dL (simulated demo value). " +
+      "SARS-CoV-2 PCR positive ×2.",
   },
 };
 
@@ -101,8 +132,8 @@ export const seededEvents: ClinicalEvent[] = [
     source: "abridge",
     title: "Admission conversation documented",
     content:
-      "Home medications confirmed with daughter. Plan: continue home antihypertensives, adjusted " +
-      "against each morning's labs while renal function recovers.",
+      "COVID-19 pneumonia with hypoxemia. Admit to isolation. Oxygen by mask, prone " +
+      "positioning as tolerated. Home medications continued as hemodynamics allow.",
     status: "reviewed",
     evidence: evidence["abridge-admission"],
   },
@@ -111,11 +142,40 @@ export const seededEvents: ClinicalEvent[] = [
     type: "lab",
     timestamp: at("23:45"),
     source: "epic",
-    title: "Comprehensive metabolic panel — admission",
-    content: "Creatinine 2.66, GFR 11.1, potassium 5.07. Acute renal impairment noted on admission.",
+    title: "Admission labs resulted",
+    content: "WBC 3.42, platelets 136, creatinine 1.4. SARS-CoV-2 PCR positive ×2.",
     status: "reviewed",
     evidence: evidence["labs-admission"],
-    data: { panel: "cmp", gfr: 11.101, creatinine: 2.6628, potassium: 5.07 },
+    data: { platelets: 136.34, creatinine: 1.4 },
+  },
+  {
+    id: "evt-vitals-baseline",
+    type: "vitals",
+    timestamp: atNext("00:15"),
+    source: "epic",
+    title: "Respiratory baseline",
+    content: "SpO₂ 92% on 4 L oxygen. Respiratory rate 22/min.",
+    status: "reviewed",
+    evidence: evidence["vitals-baseline"],
+    simulated: true,
+    data: { spo2: 92, oxygenLpm: 4, respRate: 22 },
+  },
+  {
+    /**
+     * The case doc marks this "Tracks change; no new alert". The gate evaluates
+     * it and declines — saturation slipped but the oxygen requirement did not
+     * move, so it is a trend the current plan already anticipates.
+     */
+    id: "evt-vitals-interim",
+    type: "vitals",
+    timestamp: atNext("02:40"),
+    source: "epic",
+    title: "Respiratory check",
+    content: "SpO₂ 89% on 4 L oxygen. Respiratory rate 24/min.",
+    status: "reviewed",
+    evidence: evidence["vitals-interim"],
+    simulated: true,
+    data: { spo2: 89, oxygenLpm: 4, respRate: 24, supersedesEventId: "evt-vitals-baseline" },
   },
   {
     id: "evt-orders",
@@ -124,43 +184,58 @@ export const seededEvents: ClinicalEvent[] = [
     source: "epic",
     title: "Admission orders placed",
     content:
-      "Home medications continued including lisinopril 20 mg daily. Oxygen by mask. Prone " +
-      "positioning. Daily comprehensive metabolic panel.",
+      "Home medications continued. Oxygen by mask titrated to saturation. Prone positioning.",
     status: "reviewed",
     evidence: evidence["orders-active"],
     data: {
-      activeMedications: ["lisinopril", "aspirin", "atenolol", "rosuvastatin", "oxygen"],
-      /**
-       * Medications whose safety depends on renal function. The gate checks
-       * this list against the renal trend rather than pattern-matching drug
-       * names in prose.
-       */
-      renallySensitiveActive: ["lisinopril"],
-      heldMedications: [],
+      activeMedications: ["aspirin", "atenolol", "rosuvastatin", "lisinopril", "oxygen"],
+      /** Therapeutic anticoagulation. Aspirin is antiplatelet, not anticoagulation. */
+      therapeuticAnticoagulation: false,
+      documentedPePlan: false,
     },
   },
 ];
 
-/**
- * The event the demo posts on cue: the repeat panel that changes the condition
- * the admission plan attached to continuing her antihypertensives.
- */
-export const repeatPanelEvent: ClinicalEvent = {
-  id: "evt-labs-repeat",
-  type: "lab",
-  timestamp: atNext("05:32"),
+/** Step one of the demo: the 04:35 respiratory escalation. */
+export const escalationEvent: ClinicalEvent = {
+  id: "evt-vitals-escalation",
+  type: "vitals",
+  timestamp: atNext("04:35"),
   source: "epic",
-  title: "Comprehensive metabolic panel — repeat",
-  content: "Creatinine 2.78 (prior 2.66). GFR 6.42 (prior 11.1). Potassium 5.07.",
+  title: "Respiratory status worsening",
+  content: "SpO₂ 86% despite 6 L oxygen. Respiratory rate 28/min.",
   status: "posted",
-  evidence: evidence["labs-repeat"],
-  data: {
-    panel: "cmp",
-    gfr: 6.4176,
-    creatinine: 2.7847,
-    potassium: 5.07,
-    supersedesEventId: "evt-labs-admission",
-  },
+  evidence: evidence["vitals-escalation"],
+  simulated: true,
+  data: { spo2: 86, oxygenLpm: 6, respRate: 28, supersedesEventId: "evt-vitals-interim" },
+};
+
+/** Appended when the clinician acknowledges the escalation. */
+export const ctaOrderEvent: ClinicalEvent = {
+  id: "evt-cta-order",
+  type: "order",
+  timestamp: atNext("04:39"),
+  source: "epic",
+  title: "Escalation acknowledged; CTA chest ordered",
+  content: "Inpatient medicine acknowledged the escalation and ordered CT angiogram of the chest.",
+  status: "reviewed",
+  evidence: evidence["escalation-ack"],
+  simulated: true,
+};
+
+/** Step two of the demo: the final CTA that changes the admission. */
+export const ctaResultEvent: ClinicalEvent = {
+  id: "evt-cta-final",
+  type: "imaging-final",
+  timestamp: atNext("05:38"),
+  source: "epic",
+  title: "CT angiogram chest — final read",
+  content:
+    "Acute bilateral segmental pulmonary emboli with CT evidence of right-heart strain.",
+  status: "posted",
+  evidence: evidence["cta-final"],
+  simulated: true,
+  data: { study: "cta-chest", peIdentified: true, rightHeartStrain: true },
 };
 
 export function initialPatientState(): PatientState {
@@ -171,59 +246,67 @@ export function initialPatientState(): PatientState {
       age: 81,
       edBed: "ED bed 7",
       admittedTo: "Medicine (COVID isolation)",
-      admissionDecisionAt: at("23:18"),
+      service: "Internal Medicine",
+      attending: "Vishnu Ravi, MD",
+      admissionDecisionAt: at("23:28"),
     },
     admissionIntent: {
       patientId: "pt-ariane-runolfsson",
       reasonForAdmission: "COVID-19 pneumonia with hypoxemia",
       workingDiagnosis: "COVID-19 with pneumonia; hypoxemia and respiratory distress",
       plan: [
-        "Isolation admission; oxygen by mask titrated to SpO2 >92%",
+        "Isolation admission; oxygen by mask titrated to saturation",
         "Prone positioning as tolerated, padded for known scoliosis",
-        "Continue home aspirin, atenolol, rosuvastatin, lisinopril as labs and hemodynamics allow",
-        "Daily comprehensive metabolic panel; review antihypertensives against renal function",
+        "Continue home aspirin, atenolol, rosuvastatin, lisinopril as hemodynamics allow",
+        "Continue respiratory monitoring and daily family updates",
       ],
-      pendingItems: [
-        "Repeat metabolic panel to guide antihypertensive dosing",
-        "Inpatient isolation bed assignment",
-      ],
-      evidence: ["abridge-admission", "note-renal-plan", "labs-admission"],
+      pendingItems: ["Inpatient isolation bed assignment"],
+      evidence: ["abridge-admission", "labs-admission", "vitals-baseline"],
     },
-    /** The Abridge note this boards alongside. Content from the source record. */
     note: {
       noteType: "Emergency Medicine Visit",
       historyOfPresentIllness: [
-        "The patient is an 81 year old woman with hypertension and hyperlipidemia who presents " +
-          "with fever, cough, and worsening shortness of breath, found to be hypoxemic with " +
-          "COVID-19 pneumonia.",
-        "She has had two days of fever and poor oral intake at home. Family confirms her home " +
-          "medications from her pillbox.",
-        "Admission labs show acute renal impairment with creatinine 2.66 mg/dL and GFR 11.1 mL/min.",
+        "Ariane Runolfsson is an 81-year-old woman with hypertension, hyperlipidemia, prior " +
+          "STEMI, obesity, and prediabetes presenting with five to six days of initially dry " +
+          "cough, persistent fever, poor appetite, and progressively worsening shortness of breath.",
+        "She tested positive for SARS-CoV-2 as an outpatient; repeat testing on arrival is " +
+          "positive. She reports dyspnea with minimal exertion and chest tightness with " +
+          "breathing, but denies chest pain or pressure similar to her prior myocardial " +
+          "infarction. Her daughter reports mild morning fogginess but no falls, syncope, " +
+          "hemoptysis, or leg swelling.",
+        "She has had poor oral intake for two days. Chest x-ray is consistent with pneumonia. " +
+          "She is admitted to medicine for COVID pneumonia, hypoxemia, and isolation.",
       ],
-      pastMedicalHistory: ["Hypertension", "Hyperlipidemia", "Scoliosis"],
+      pastMedicalHistory: [
+        "Essential hypertension",
+        "Prior ST-elevation myocardial infarction",
+        "Hyperlipidemia",
+        "Metabolic syndrome",
+        "Prediabetes",
+        "Obesity",
+        "Osteoporosis",
+        "Adolescent idiopathic scoliosis",
+      ],
       medications: [
         "Aspirin 81 mg daily",
         "Atenolol 50 mg daily",
         "Rosuvastatin 40 mg daily",
         "Lisinopril 20 mg daily",
       ],
+      allergies: ["Tree nuts"],
       results:
-        "CMP: creatinine 2.66 mg/dL, GFR 11.1 mL/min/1.73m², potassium 5.07 mmol/L, sodium 136.05, " +
-        "glucose 67.23. SARS-CoV-2 PCR positive.",
+        "SARS-CoV-2 PCR positive ×2. Chest x-ray consistent with pneumonia. WBC 3.42 ×10³/µL. " +
+        "Platelets 136 ×10³/µL. Creatinine 1.4 mg/dL. Admission vitals: T 38.45 °C, HR 57/min, " +
+        "RR 19/min, BP 105/53 mmHg, SpO₂ 87% on presentation.",
     },
-    // Deep-copy the seeded events. Spreading only the array would share the
-    // event objects (and their `data`) across every call, so a caller that
-    // mutates one — a test holding a medication, say — would silently corrupt
-    // every state built afterwards.
     events: seededEvents.map((e) => ({ ...e, data: e.data ? { ...e.data } : undefined })),
     signals: [],
     suppressed: [],
     drafts: [],
     evidence,
     handoff:
-      "81-year-old admitted for COVID-19 pneumonia with hypoxemia. On oxygen by mask with prone " +
-      "positioning. Acute renal impairment on admission (creatinine 2.66, GFR 11.1); home " +
-      "antihypertensives continued pending repeat labs.",
+      "81-year-old admitted for COVID-19 pneumonia with hypoxemia. On oxygen by mask with " +
+      "prone positioning as tolerated. Home medications continued. Awaiting isolation bed.",
     trace: [],
     now: DEMO_NOW,
   };

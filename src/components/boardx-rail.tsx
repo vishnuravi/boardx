@@ -34,10 +34,6 @@ const PIPELINE: { label: string; kind: "claude" | "code"; role: string }[] = [
   },
 ];
 
-const ROLE: Record<string, string> = Object.fromEntries(
-  PIPELINE.map((s) => [s.label, s.role]),
-);
-
 /**
  * The BoardX rail tab and its mobile counterpart.
  *
@@ -72,12 +68,22 @@ export function useBoardX(state: PatientState, setState: (s: PatientState) => vo
 
   return {
     busy,
-    posted: state.events.some((e) => e.id === "evt-labs-repeat"),
-    postPanel: () =>
+    escalationPosted: state.events.some((e) => e.id === "evt-vitals-escalation"),
+    escalationAcknowledged: state.signals.some(
+      (sig) => sig.category === "escalation" && sig.status === "acknowledged",
+    ),
+    ctaPosted: state.events.some((e) => e.id === "evt-cta-final"),
+    postEvent: (event: "escalation" | "cta-result") =>
       call("/api/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ event: "repeat-panel" }),
+        body: JSON.stringify({ event }),
+      }),
+    acknowledge: (signalId: string) =>
+      call(`/api/signals/${signalId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision: "acknowledged" }),
       }),
     decide: (draftId: string, decision: string, message: string) =>
       call(`/api/drafts/${draftId}`, {
@@ -98,9 +104,9 @@ export function BoardXRail({
   state: PatientState;
   actions: BoardXActions;
 }) {
-  const { busy, posted, postPanel, decide, reset } = actions;
+  const { busy, escalationPosted, escalationAcknowledged, ctaPosted, postEvent, acknowledge, decide, reset } =
+    actions;
   const [drawerFor, setDrawerFor] = useState<string[] | null>(null);
-  const [showTrace, setShowTrace] = useState(false);
   const [editing, setEditing] = useState(false);
 
   return (
@@ -110,18 +116,34 @@ export function BoardXRail({
           {surname(state)} · {state.patient.age}F
         </span>
         <span className="bx-chip amber">Boarding {boardingDuration(state)}</span>
-        <span className="bx-chip">Medicine · COVID isolation</span>
+        <span className="bx-chip">{state.patient.service} · COVID isolation</span>
         <span className="bx-chip">{state.patient.edBed}</span>
+        <span className="bx-chip">
+          <i className="ti ti-stethoscope" /> {state.patient.attending}
+        </span>
       </div>
+
+      <BoardingBrief state={state} />
 
       {state.signals.map((signal) => {
         const draft = state.drafts.find((d) => d.signalId === signal.id);
         const settled = signal.status !== "needs-review";
         return (
-          <div className="bx-signal" key={signal.id}>
+          <div
+            className={`bx-signal${signal.priority === "high" ? " high" : ""}${
+              signal.action === "acknowledge" ? " escalation" : ""
+            }`}
+            key={signal.id}
+          >
             <div className="bx-signal-h">
-              <i className={`ti ti-${settled ? "circle-check" : "alert-triangle"}`} />
-              {settled ? statusLabel(signal.status) : "Needs clinician review"}
+              <i className={`ti ti-${settled ? "circle-check" : signal.action === "acknowledge" ? "activity-heartbeat" : "alert-triangle"}`} />
+              {settled
+                ? statusLabel(signal.status)
+                : signal.action === "acknowledge"
+                  ? signal.headline
+                  : signal.priority === "high"
+                    ? "High-priority clinician review"
+                    : "Needs clinician review"}
               <time>{formatTime(signal.createdAt)}</time>
             </div>
             <div className="bx-signal-b">
@@ -144,6 +166,28 @@ export function BoardXRail({
                   );
                 })}
               </div>
+
+              {signal.action === "acknowledge" && !settled && (
+                <div className="bx-actions">
+                  <button
+                    className="pill-dark"
+                    disabled={busy}
+                    onClick={() => acknowledge(signal.id)}
+                  >
+                    Acknowledge
+                  </button>
+                  <span className="bx-nonprescriptive">
+                    Reports the change only. No cause named, no imaging suggested.
+                  </span>
+                </div>
+              )}
+
+              {signal.action === "acknowledge" && settled && (
+                <p className="bx-sent">
+                  <i className="ti ti-check" /> Acknowledged by {state.patient.attending} ·{" "}
+                  {state.patient.service} · CTA chest ordered at 04:39
+                </p>
+              )}
 
               {draft && (
                 <DraftBlock
@@ -201,35 +245,53 @@ export function BoardXRail({
             </div>
             <div className="t2">{s.reason}</div>
           </div>
-          <button className="trace" onClick={() => setShowTrace((v) => !v)}>
-            {showTrace ? "Hide trace" : "View trace"}
-          </button>
         </div>
       ))}
 
       {(busy || state.trace.length > 0) && (
-        <AgentPipeline
-          running={busy}
-          trace={state.trace}
-          showDetail={showTrace}
-          onToggleDetail={() => setShowTrace((v) => !v)}
-        />
+        <AgentPipeline running={busy} trace={state.trace} />
       )}
 
-      {!posted && (
+      {!ctaPosted && (
         <div className="bx-demo">
-          <div className="lbl">Demo control</div>
-          <p>
-            Story is current. Post the 05:32 repeat metabolic panel to run the four
-            agents over it.
-          </p>
-          <button className="pill-dark" onClick={postPanel} disabled={busy}>
-            {busy ? "Agents running…" : "Post repeat metabolic panel"}
-          </button>
+          <div className="lbl">Demo control · step {escalationPosted ? "2 of 2" : "1 of 2"}</div>
+          {!escalationPosted ? (
+            <>
+              <p>
+                Story is current. Post the 04:35 respiratory trend to run the agents over it.
+              </p>
+              <button
+                className="pill-dark"
+                onClick={() => postEvent("escalation")}
+                disabled={busy}
+              >
+                {busy ? "Agents running…" : "Post 04:35 respiratory trend"}
+              </button>
+            </>
+          ) : !escalationAcknowledged ? (
+            <p className="waiting">
+              Acknowledge the escalation above. Medicine then orders the CTA, and its final
+              read becomes the next event.
+            </p>
+          ) : (
+            <>
+              <p>
+                CTA ordered at 04:39. Post its 05:38 final read — the result that changes the
+                admission.
+              </p>
+              <button
+                className="pill-dark"
+                onClick={() => postEvent("cta-result")}
+                disabled={busy}
+              >
+                {busy ? "Agents running…" : "Post 05:38 final CTA result"}
+              </button>
+            </>
+          )}
         </div>
       )}
 
-      {posted && (
+      {escalationPosted && (
         <button className="bx-reset" onClick={reset} disabled={busy}>
           Reset demo
         </button>
@@ -253,20 +315,10 @@ export function BoardXRail({
  *              or fell back to code, and (in detail) how long it took and why.
  *
  * The trace it renders is the orchestrator's own, so the panel cannot claim an
- * agent ran on Claude when it actually fell back. "View trace" on the suppressed
- * card toggles the same detail.
+ * agent ran on Claude when it actually fell back — a stage that fell back is
+ * tagged `fallback`, and one the safety layer overrode is marked vetoed.
  */
-function AgentPipeline({
-  running,
-  trace,
-  showDetail,
-  onToggleDetail,
-}: {
-  running: boolean;
-  trace: AgentTrace[];
-  showDetail: boolean;
-  onToggleDetail: () => void;
-}) {
+function AgentPipeline({ running, trace }: { running: boolean; trace: AgentTrace[] }) {
   const done = !running && trace.length > 0;
 
   return (
@@ -278,11 +330,6 @@ function AgentPipeline({
         <span className={`state ${running ? "run" : done ? "done" : ""}`}>
           {running ? "Working…" : done ? "Complete" : "Ready"}
         </span>
-        {done && (
-          <button className="detail-toggle" onClick={onToggleDetail}>
-            {showDetail ? "Hide trace" : "View trace"}
-          </button>
-        )}
       </div>
 
       <div className="bx-pipeline-stages">
@@ -299,7 +346,6 @@ function AgentPipeline({
           ))}
 
         {done &&
-          !showDetail &&
           PIPELINE.map((stage) => {
             const hit = trace.find((t) => t.label === stage.label);
             const vetoed = trace.some((t) => t.label === stage.label && t.vetoed?.length);
@@ -316,21 +362,6 @@ function AgentPipeline({
             );
           })}
 
-        {done &&
-          showDetail &&
-          trace.map((step, i) => (
-            <Stage
-              key={`${step.label}-${i}`}
-              kind={step.source === "claude" ? "claude" : "code"}
-              name={step.label}
-              role={ROLE[step.label]}
-              why={step.reason}
-              veto={Boolean(step.vetoed?.length)}
-              vetoDetail={step.vetoed}
-              tag={step.source === "claude" ? "Claude" : "code"}
-              ms={step.ms}
-            />
-          ))}
       </div>
     </div>
   );
@@ -372,6 +403,60 @@ function Stage({
         {tag}
         {ms !== undefined && ms > 0 && <em> · {ms}ms</em>}
       </span>
+    </div>
+  );
+}
+
+/**
+ * The Live Boarding Brief — the first of the three capabilities in
+ * planning/product-solution.md, and the thing a clinician reads before anything
+ * else: why this patient is here, what the plan is, and what has moved.
+ *
+ * It sits above the signals deliberately. A review card without the story it
+ * changes is an alert; with the story above it, it is a change to a plan the
+ * reader is already holding.
+ */
+function BoardingBrief({ state }: { state: PatientState }) {
+  const { admissionIntent: intent } = state;
+  const open = state.signals.filter((s) => s.status === "needs-review");
+  const acknowledged = state.signals.filter((s) => s.status === "acknowledged");
+
+  const sinceLastReview =
+    open.length > 0
+      ? open.map((s) => s.headline).join(" · ")
+      : acknowledged.length > 0
+        ? `${acknowledged.length} item${acknowledged.length > 1 ? "s" : ""} reviewed and acknowledged`
+        : "No material changes";
+
+  return (
+    <div className="bx-brief">
+      <div className="lbl">
+        <i className="ti ti-notes" /> Live boarding brief
+      </div>
+      <dl>
+        <dt>Accepting service</dt>
+        <dd>
+          {state.patient.service} · {state.patient.attending}
+        </dd>
+
+        <dt>Why admitted</dt>
+        <dd>{intent.reasonForAdmission}</dd>
+
+        <dt>Current plan</dt>
+        <dd>
+          <ul>
+            {intent.plan.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </dd>
+
+        <dt>Since last review</dt>
+        <dd className={open.length > 0 ? "changed" : undefined}>{sinceLastReview}</dd>
+
+        <dt>Open items</dt>
+        <dd>{intent.pendingItems.length > 0 ? intent.pendingItems.join("; ") : "None outstanding"}</dd>
+      </dl>
     </div>
   );
 }
@@ -459,10 +544,13 @@ export function BoardXMobile({
   state: PatientState;
   actions: BoardXActions;
 }) {
-  const { busy, posted, postPanel, decide } = actions;
+  const { busy, escalationPosted, escalationAcknowledged, ctaPosted, postEvent, acknowledge, decide } =
+    actions;
   const [message, setMessage] = useState<string | null>(null);
 
-  const signal = state.signals[0];
+  // The PE signal is the one carrying a draft; the escalation is acknowledge-only.
+  const signal = state.signals.find((s) => s.action === "draft") ?? state.signals[0];
+  const escalation = state.signals.find((s) => s.action === "acknowledge");
   const draft = state.drafts[0];
   const settled = signal && signal.status !== "needs-review";
   const text = message ?? draft?.message ?? "";
@@ -603,26 +691,56 @@ export function BoardXMobile({
               Unchanged; flagged in renal plan
             </div>
           </div>
-          <span
-            style={{
-              marginLeft: "auto",
-              fontSize: 12.5,
-              color: "var(--blue)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            View trace
-          </span>
         </div>
       ))}
 
-      {!posted && (
+      {escalation && escalation.status === "needs-review" && (
+        <div className="m-card m-signal" style={{ padding: 0 }}>
+          <div className="sh">
+            <i className="ti ti-activity-heartbeat" /> {escalation.headline}
+            <time>{formatTime(escalation.createdAt)}</time>
+          </div>
+          <div className="sb">
+            <p>{escalation.explanation}</p>
+            <button
+              className="m-approve"
+              disabled={busy}
+              onClick={() => acknowledge(escalation.id)}
+            >
+              Acknowledge
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!ctaPosted && (
         <div className="bx-demo">
-          <div className="lbl">Demo control</div>
-          <p>Post the 05:32 repeat panel.</p>
-          <button className="pill-dark" onClick={postPanel} disabled={busy}>
-            {busy ? "Agents running…" : "Post panel"}
-          </button>
+          <div className="lbl">Demo · step {escalationPosted ? "2 of 2" : "1 of 2"}</div>
+          {!escalationPosted ? (
+            <>
+              <p>Post the 04:35 respiratory trend.</p>
+              <button
+                className="pill-dark"
+                onClick={() => postEvent("escalation")}
+                disabled={busy}
+              >
+                {busy ? "Agents running…" : "Post 04:35 trend"}
+              </button>
+            </>
+          ) : !escalationAcknowledged ? (
+            <p className="waiting">Acknowledge the escalation above.</p>
+          ) : (
+            <>
+              <p>CTA ordered 04:39. Post the 05:38 final read.</p>
+              <button
+                className="pill-dark"
+                onClick={() => postEvent("cta-result")}
+                disabled={busy}
+              >
+                {busy ? "Agents running…" : "Post 05:38 CTA"}
+              </button>
+            </>
+          )}
         </div>
       )}
 
