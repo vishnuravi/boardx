@@ -8,7 +8,8 @@
  */
 
 import { finalCtEvent, initialPatientState } from "@/data/maria-chen";
-import { buildHandoff, draftForSignal, evaluateEvent } from "./evaluator";
+import { orchestrateEvent } from "./agents/orchestrator";
+import { buildHandoff } from "./evaluator";
 import type { ClinicianDecision, PatientState, SignalStatus } from "./types";
 
 const KEY = Symbol.for("boardx.patient-state");
@@ -29,17 +30,23 @@ export function reset(): PatientState {
 }
 
 /**
- * Posts the demo's final CT read: appends the event, runs the evaluators, and
- * drafts an action for anything that fires. Idempotent.
+ * Posts the demo's final CT read and runs the helper pipeline over it.
+ * Idempotent — re-posting returns current state without re-running the agents.
+ *
+ * The event is appended only after orchestration completes, so the helpers
+ * reason about the state as it was *before* the event landed. That is what lets
+ * the Change Interpreter compare the new read against the prior understanding.
  */
-export function postFinalCt(): PatientState {
+export async function postFinalCt(): Promise<PatientState> {
   const s = state();
   if (s.events.some((e) => e.id === finalCtEvent.id)) return s;
 
-  const signals = evaluateEvent(finalCtEvent, s);
+  const { signals, drafts, trace } = await orchestrateEvent(finalCtEvent, s);
+
   s.events = [...s.events, finalCtEvent];
   s.signals = [...s.signals, ...signals];
-  s.drafts = [...s.drafts, ...signals.map((sig) => draftForSignal(sig, s))];
+  s.drafts = [...s.drafts, ...drafts];
+  s.trace = trace;
   s.admissionIntent.pendingItems = s.admissionIntent.pendingItems.filter(
     (item) => !item.toLowerCase().includes("final ct"),
   );

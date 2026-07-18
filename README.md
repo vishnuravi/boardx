@@ -60,14 +60,82 @@ That's the whole demo loop — and it's more useful than an "abnormal CT" alert 
 - Mortality prediction, deterioration prediction, or bed-availability prediction
 - Live Epic or Abridge production integration
 
+## Architecture
+
+Five focused components behind one clinician experience. Four are Claude calls with
+structured output; the fifth is code only.
+
+```
+ClinicalEvent
+     ↓
+deterministic gates          evaluator.ts — decides IF a signal fires
+     ↓
+Change Interpreter  ┐
+Open-Loop Finder    ┘        parallel — independent questions
+     ↓
+Safety & Evidence Layer      code only — provenance + language
+     ↓
+Action Drafting Helper
+     ↓
+SafetySignal + ActionDraft   decision: pending
+```
+
+**Division of authority.** The deterministic gates decide *whether* a signal fires.
+The model decides *how it reads*. Event type, timestamps, active-order checks, and
+duplicate suppression stay in code so they're auditable and testable; a model outage
+degrades the prose rather than silencing a signal. When the Change Interpreter
+disagrees with a gate, the disagreement is recorded in the trace rather than
+suppressing the card.
+
+**Why five components and not one call.** Each helper gets its own effort level
+(`low` for state-building, `high` for clinical judgment), the two interpretation
+questions run concurrently, and each can be evaluated and swapped independently.
+The clinician still sees one workspace — the decomposition is for us, not them.
+
+**The Safety and Evidence Layer never calls a model.** It checks provenance (every
+cited evidence ID must resolve), grounding (a claim with no surviving evidence isn't
+shown), and language (no accusatory or instructional phrasing). A hallucinated
+citation is dropped rather than rendered as a broken link. The language check is a
+regex backstop, not a semantic one — provenance is the load-bearing guarantee.
+
+Every helper runs inside a timeout with a deterministic fallback. Nothing in the
+pipeline can be the reason the demo stalls.
+
+### Measured decisions
+
+**Prompt caching is deliberately absent.** The four helpers share an identical
+patient-context prefix, which looks like an obvious caching win — but `npm run measure`
+puts it at **861 tokens** against Opus 4.8's **4096-token minimum cacheable prefix**.
+Adding `cache_control` would be a silent no-op (no error, just
+`cache_creation_input_tokens: 0`). Worth revisiting once the context holds a real
+chart; not worth faking now.
+
+**The safety layer is adversarially tested.** `npm run eval` runs 11 static gate
+tests plus a live red-team tier against the actual model — probing for
+over-triggering, invented citations, and accusatory phrasing. The live tier earns
+its keep: it caught the model citing `imaging-final` (an event *type*) as though it
+were an evidence ID. Provenance rejected the claim. A gate that has only ever seen
+synthetic bad input proves very little.
+
+**Degradation is verified, not assumed.** With no key and with an invalid key, the
+pipeline still produces a complete signal and draft from the deterministic path, with
+the reason surfaced in the trace rather than swallowed.
+
+**Latency is ~13s end to end** (two parallel helpers at ~8s, then the drafter at ~5s).
+Acceptable for a demo where the event posts on cue; it would need work before a
+clinician waited on it live.
+
 ## Stack
 
-- **Frontend** — React / Next.js patient workspace with an evidence drawer
-- **Backend** — thin API over an in-memory or JSON-backed patient-state store
+- **Frontend** — React 19 / Next.js 16 patient workspace with an evidence drawer
+- **Backend** — thin API over an in-memory patient-state store
 - **Data** — synthetic FHIR-shaped fixtures plus a simulated Abridge encounter artifact
-- **AI** — structured-output calls for change explanation and message drafting; deterministic gates for event type, timestamps, and active-order checks
+- **AI** — Claude Opus 4.8 via structured outputs (zod schemas); deterministic gates in code
 
-> **Current state:** the evaluator gates and draft generation are implemented deterministically. Swapping the *explanation* and *message* text for LLM structured-output calls is the next step — the gates stay as code so they remain testable and auditable.
+```bash
+npm run measure   # token footprint vs. the caching threshold
+npm run eval      # safety-layer evals (static tier needs no API key)
+```
 
 Core objects: `AdmissionIntent`, `ClinicalEvent`, `PatientState`, `SafetySignal`, `ActionDraft`. See [`planning/prototype-prd.md`](planning/prototype-prd.md) for field-level detail and build order.
 
@@ -77,8 +145,12 @@ Core objects: `AdmissionIntent`, `ClinicalEvent`, `PatientState`, `SafetySignal`
 git clone https://github.com/vishnuravi/boardx.git
 cd boardx
 npm install
+echo "ANTHROPIC_API_KEY=sk-ant-..." > .env.local   # optional — see below
 npm run dev
 ```
+
+Without a key the app still runs the full loop on the deterministic path, with each
+helper marked `code` in the trace. With a key, the four helpers run on Claude.
 
 Open http://localhost:3000. The workspace loads Maria Chen mid-boarding with no
 material changes. Click **Post final CT result** to run the demo loop: the brief
@@ -95,15 +167,26 @@ src/
     api/patient/          GET state · DELETE reset
     api/events/           POST a new chart event
     api/drafts/[id]/      POST a clinician decision
-  components/             workspace, review card, evidence drawer
+  components/             workspace, review card, evidence drawer, trace strip
   data/maria-chen.ts      synthetic fixtures for the hero scenario
   lib/
     types.ts              AdmissionIntent · ClinicalEvent · PatientState · SafetySignal · ActionDraft
-    evaluator.ts          rule registry, draft generation, handoff builder
+    evaluator.ts          deterministic gates, fallback text, handoff builder
     store.ts              in-memory patient state (prototype only)
+    agents/
+      client.ts           Claude client + timeout/fallback envelope
+      context.ts          renders patient state into the shared prompt
+      schemas.ts          zod structured-output contracts
+      helpers.ts          the four LLM-backed helpers
+      safety.ts           Safety & Evidence Layer (no model)
+      orchestrator.ts     wires the pipeline together
+scripts/
+  measure-tokens.ts       token footprint vs. caching threshold
+  eval-safety.ts          adversarial safety-layer evals
 ```
 
-Adding a signal class means adding one rule to the registry in `lib/evaluator.ts`.
+Adding a signal class means adding one rule to the registry in `lib/evaluator.ts` —
+the helpers and safety layer generalize across signal types without changes.
 
 ## Roadmap
 

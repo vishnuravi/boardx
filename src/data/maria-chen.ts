@@ -149,6 +149,7 @@ export function initialPatientState(): PatientState {
     handoff:
       "Admitted for hypoxia and presumed community-acquired pneumonia. On oxygen and IV antibiotics. " +
       "Final CT angiogram read pending at time of handoff.",
+    trace: [],
     now: DEMO_NOW,
   };
 }

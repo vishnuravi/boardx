@@ -65,6 +65,7 @@ export function Workspace({ initial }: { initial: PatientState }) {
         ))}
 
         <Handoff state={state} />
+        <TraceStrip state={state} />
         <Timeline state={state} onViewEvidence={(id) => setDrawerFor([id])} />
 
         {!ctPosted && (
@@ -171,6 +172,44 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <dt className="label">{label}</dt>
       <dd className="mt-1 leading-relaxed">{children}</dd>
     </div>
+  );
+}
+
+/**
+ * Provenance for the pipeline itself: which helper produced what, how long it
+ * took, and whether the Safety layer overrode it. A clinician asked to trust a
+ * card should be able to see how it was made.
+ */
+function TraceStrip({ state }: { state: PatientState }) {
+  if (state.trace.length === 0) return null;
+
+  return (
+    <section className="rounded-xl border border-line bg-surface p-5">
+      <span className="label">How this was produced</span>
+      <ol className="mt-3 space-y-2 text-sm">
+        {state.trace.map((step, i) => (
+          <li key={`${step.label}-${i}`} className="flex flex-wrap items-baseline gap-x-3">
+            <span
+              className={`tabular text-xs ${
+                step.source === "claude" ? "text-accent" : "text-muted"
+              }`}
+            >
+              {step.source === "claude" ? "claude" : "code"}
+            </span>
+            <span className="font-medium">{step.label}</span>
+            {step.ms > 0 && <span className="tabular text-xs text-muted">{step.ms}ms</span>}
+            {step.reason && (
+              <span className="w-full text-xs leading-relaxed text-muted">{step.reason}</span>
+            )}
+            {step.vetoed?.map((v) => (
+              <span key={v} className="w-full text-xs leading-relaxed text-review">
+                {v}
+              </span>
+            ))}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 

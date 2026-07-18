@@ -10,5 +10,5 @@ export async function POST(request: Request) {
   if (body?.event !== "final-ct") {
     return NextResponse.json({ error: "Unsupported event" }, { status: 400 });
   }
-  return NextResponse.json(postFinalCt());
+  return NextResponse.json(await postFinalCt());
 }

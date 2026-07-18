@@ -80,6 +80,16 @@ export type ActionDraft = {
   decidedAt?: string;
 };
 
+/** How one helper's output was produced. Surfaced so the clinician can see it. */
+export type AgentTrace = {
+  label: string;
+  source: "claude" | "fallback";
+  ms: number;
+  reason?: string;
+  /** Set when the Safety and Evidence Layer rejected the helper's output. */
+  vetoed?: string[];
+};
+
 /** Shared state, rebuilt after every event. */
 export type PatientState = {
   patient: {
@@ -98,6 +108,8 @@ export type PatientState = {
   evidence: Record<string, EvidenceRef>;
   /** Regenerated from current state whenever a loop closes. */
   handoff: string;
+  /** Execution record of the most recent orchestration run. */
+  trace: AgentTrace[];
   /** Fixed demo clock so the scenario reads identically on every run. */
   now: string;
 };
