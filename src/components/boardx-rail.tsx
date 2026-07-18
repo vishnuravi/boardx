@@ -2,8 +2,41 @@
 
 import { useState } from "react";
 import { boardingDuration, formatTime } from "@/lib/evaluator";
-import type { ActionDraft, PatientState, SafetySignal } from "@/lib/types";
+import type { ActionDraft, AgentTrace, PatientState, SafetySignal } from "@/lib/types";
 import { EvidenceDrawer } from "./evidence-drawer";
+
+/**
+ * The agents that run on one posted event, in pipeline order. `kind` is what
+ * each runs on — a Claude call or the code-only safety gate — and `role` is the
+ * one-line job shown in the pipeline panel so it is clear what each agent does.
+ * Mirrors the orchestrator and the README "The agents" table.
+ */
+const PIPELINE: { label: string; kind: "claude" | "code"; role: string }[] = [
+  {
+    label: "Change Interpreter",
+    kind: "claude",
+    role: "Decides whether the new panel is a meaningful change for this patient",
+  },
+  {
+    label: "Open-Loop Finder",
+    kind: "claude",
+    role: "Scans the plan for unresolved items — runs in parallel",
+  },
+  {
+    label: "Safety & Evidence Layer",
+    kind: "code",
+    role: "Verifies every citation and blocks unsafe phrasing",
+  },
+  {
+    label: "Action Drafting Helper",
+    kind: "claude",
+    role: "Drafts the secure-chat message to the admitting team",
+  },
+];
+
+const ROLE: Record<string, string> = Object.fromEntries(
+  PIPELINE.map((s) => [s.label, s.role]),
+);
 
 /**
  * The BoardX rail tab and its mobile counterpart.
@@ -174,28 +207,24 @@ export function BoardXRail({
         </div>
       ))}
 
-      {showTrace && state.trace.length > 0 && (
-        <div className="bx-trace">
-          <div className="lbl">How this was produced</div>
-          {state.trace.map((step, i) => (
-            <div className="row" key={`${step.label}-${i}`}>
-              <span className={step.source === "claude" ? "src claude" : "src"}>
-                {step.source === "claude" ? "claude" : "code"}
-              </span>
-              <span className="name">{step.label}</span>
-              {step.ms > 0 && <span className="ms">{step.ms}ms</span>}
-              {step.reason && <span className="why">{step.reason}</span>}
-            </div>
-          ))}
-        </div>
+      {(busy || state.trace.length > 0) && (
+        <AgentPipeline
+          running={busy}
+          trace={state.trace}
+          showDetail={showTrace}
+          onToggleDetail={() => setShowTrace((v) => !v)}
+        />
       )}
 
       {!posted && (
         <div className="bx-demo">
           <div className="lbl">Demo control</div>
-          <p>Story is current. Post the 05:32 repeat metabolic panel to run the pipeline.</p>
+          <p>
+            Story is current. Post the 05:32 repeat metabolic panel to run the four
+            agents over it.
+          </p>
           <button className="pill-dark" onClick={postPanel} disabled={busy}>
-            {busy ? "Running helpers…" : "Post repeat metabolic panel"}
+            {busy ? "Agents running…" : "Post repeat metabolic panel"}
           </button>
         </div>
       )}
@@ -212,6 +241,137 @@ export function BoardXRail({
           onClose={() => setDrawerFor(null)}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Makes the agents visible. This panel is the answer to "is anything happening?"
+ *
+ *  - running:  each agent shown live with a pulsing marker while the pipeline runs.
+ *  - complete: the real trace — what each agent produced, whether it ran on Claude
+ *              or fell back to code, and (in detail) how long it took and why.
+ *
+ * The trace it renders is the orchestrator's own, so the panel cannot claim an
+ * agent ran on Claude when it actually fell back. "View trace" on the suppressed
+ * card toggles the same detail.
+ */
+function AgentPipeline({
+  running,
+  trace,
+  showDetail,
+  onToggleDetail,
+}: {
+  running: boolean;
+  trace: AgentTrace[];
+  showDetail: boolean;
+  onToggleDetail: () => void;
+}) {
+  const done = !running && trace.length > 0;
+
+  return (
+    <div className="bx-pipeline">
+      <div className="bx-pipeline-h">
+        <span className="lbl">
+          <i className="ti ti-topology-star-3" /> BoardX agents
+        </span>
+        <span className={`state ${running ? "run" : done ? "done" : ""}`}>
+          {running ? "Working…" : done ? "Complete" : "Ready"}
+        </span>
+        {done && (
+          <button className="detail-toggle" onClick={onToggleDetail}>
+            {showDetail ? "Hide trace" : "View trace"}
+          </button>
+        )}
+      </div>
+
+      <div className="bx-pipeline-stages">
+        {running &&
+          PIPELINE.map((stage) => (
+            <Stage
+              key={stage.label}
+              kind={stage.kind}
+              name={stage.label}
+              role={stage.role}
+              working
+              tag={stage.kind === "claude" ? "Claude" : "code"}
+            />
+          ))}
+
+        {done &&
+          !showDetail &&
+          PIPELINE.map((stage) => {
+            const hit = trace.find((t) => t.label === stage.label);
+            const vetoed = trace.some((t) => t.label === stage.label && t.vetoed?.length);
+            const ranOnClaude = hit?.source === "claude";
+            return (
+              <Stage
+                key={stage.label}
+                kind={stage.kind === "claude" && !ranOnClaude ? "code" : stage.kind}
+                name={stage.label}
+                role={stage.role}
+                veto={vetoed}
+                tag={stage.kind === "code" ? "code" : ranOnClaude ? "Claude" : "fallback"}
+              />
+            );
+          })}
+
+        {done &&
+          showDetail &&
+          trace.map((step, i) => (
+            <Stage
+              key={`${step.label}-${i}`}
+              kind={step.source === "claude" ? "claude" : "code"}
+              name={step.label}
+              role={ROLE[step.label]}
+              why={step.reason}
+              veto={Boolean(step.vetoed?.length)}
+              vetoDetail={step.vetoed}
+              tag={step.source === "claude" ? "Claude" : "code"}
+              ms={step.ms}
+            />
+          ))}
+      </div>
+    </div>
+  );
+}
+
+function Stage({
+  kind,
+  name,
+  role,
+  working = false,
+  veto = false,
+  why,
+  vetoDetail,
+  tag,
+  ms,
+}: {
+  kind: "claude" | "code";
+  name: string;
+  role?: string;
+  working?: boolean;
+  veto?: boolean;
+  why?: string;
+  vetoDetail?: string[];
+  tag: string;
+  ms?: number;
+}) {
+  return (
+    <div className={`stage ${working ? "working" : "done"}`}>
+      <span className={`dot ${kind} ${veto ? "veto" : ""}`} />
+      <div className="txt">
+        <span className="name">{name}</span>
+        {role && <span className="role">{role}</span>}
+        {why && <span className="why">{why}</span>}
+        {veto && vetoDetail?.length ? (
+          <span className="why veto">vetoed: {vetoDetail.join("; ")}</span>
+        ) : null}
+      </div>
+      <span className="tag">
+        {tag}
+        {ms !== undefined && ms > 0 && <em> · {ms}ms</em>}
+      </span>
     </div>
   );
 }
@@ -309,6 +469,10 @@ export function BoardXMobile({
 
   return (
     <div className="m-scroll">
+      {(busy || state.trace.length > 0) && (
+        <AgentPipelineMini running={busy} trace={state.trace} />
+      )}
+
       {signal && (
         <div className="m-card m-signal">
           <div className="sh">
@@ -457,7 +621,7 @@ export function BoardXMobile({
           <div className="lbl">Demo control</div>
           <p>Post the 05:32 repeat panel.</p>
           <button className="pill-dark" onClick={postPanel} disabled={busy}>
-            {busy ? "Running…" : "Post panel"}
+            {busy ? "Agents running…" : "Post panel"}
           </button>
         </div>
       )}
@@ -465,6 +629,27 @@ export function BoardXMobile({
       <div className="m-lock">
         <i className="ti ti-lock" style={{ fontSize: 12 }} /> Nothing sends without your approval
       </div>
+    </div>
+  );
+}
+
+/** Compact agent status for the phone — the same signal, room permitting. */
+function AgentPipelineMini({ running, trace }: { running: boolean; trace: AgentTrace[] }) {
+  const done = !running && trace.length > 0;
+  const claudeRan = trace.filter((t) => t.source === "claude").length;
+
+  return (
+    <div className={`m-pipeline ${done ? "done" : ""}`}>
+      <span className="dots">
+        <span />
+        <span />
+        <span />
+      </span>
+      <span className="txt">
+        {running
+          ? "BoardX agents analyzing the panel…"
+          : `${PIPELINE.length} agents ran · ${claudeRan} on Claude · citations verified`}
+      </span>
     </div>
   );
 }

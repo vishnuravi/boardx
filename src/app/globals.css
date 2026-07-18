@@ -359,20 +359,75 @@
   font-size: 13px; color: var(--ink-3); text-decoration: underline;
 }
 
-.bx-trace {
+/* Agent pipeline — makes it visible that the agents are running and what each did. */
+.bx-pipeline {
   background: #fdfcfa; border: 1px solid var(--line); border-radius: 14px;
-  padding: 16px 22px; margin-bottom: 20px;
+  padding: 15px 18px 8px; margin-bottom: 20px;
 }
-.bx-trace .lbl {
+.bx-pipeline-h { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
+.bx-pipeline-h .lbl {
   font-size: 11.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--ink-2); margin-bottom: 10px;
+  color: var(--ink-2); display: flex; align-items: center; gap: 6px;
 }
-.bx-trace .row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin-bottom: 7px; }
-.bx-trace .src { font-size: 12px; color: var(--ink-3); }
-.bx-trace .src.claude { color: var(--blue); }
-.bx-trace .name { font-size: 13.5px; font-weight: 500; }
-.bx-trace .ms { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.bx-trace .why { flex-basis: 100%; font-size: 12px; line-height: 1.5; color: var(--ink-3); }
+.bx-pipeline-h .lbl i { font-size: 14px; }
+.bx-pipeline-h .state {
+  font-size: 10.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px;
+  background: var(--cream-2); color: var(--ink-3); letter-spacing: 0.02em;
+}
+.bx-pipeline-h .state.run { background: #e5ecff; color: var(--blue); }
+.bx-pipeline-h .state.done { background: #e2f1e9; color: var(--green); }
+.bx-pipeline-h .detail-toggle {
+  margin-left: auto; font-size: 12.5px; color: var(--blue);
+  background: none; border: none; padding: 0;
+}
+.bx-pipeline-stages { display: flex; flex-direction: column; }
+.bx-pipeline .stage {
+  display: flex; align-items: flex-start; gap: 11px; padding: 9px 2px;
+  border-top: 1px solid var(--line);
+}
+.bx-pipeline .stage:first-child { border-top: none; }
+.bx-pipeline .dot {
+  width: 9px; height: 9px; border-radius: 50%; margin-top: 4px; flex-shrink: 0;
+  background: var(--ink-3);
+}
+.bx-pipeline .dot.claude { background: var(--blue); }
+.bx-pipeline .dot.code { background: var(--ink-3); }
+.bx-pipeline .dot.veto { background: var(--sig-red); }
+.bx-pipeline .stage.working .dot { animation: bx-pulse 1.15s ease-in-out infinite; }
+.bx-pipeline .stage.working:nth-child(1) .dot { animation-delay: 0s; }
+.bx-pipeline .stage.working:nth-child(2) .dot { animation-delay: 0.13s; }
+.bx-pipeline .stage.working:nth-child(3) .dot { animation-delay: 0.26s; }
+.bx-pipeline .stage.working:nth-child(4) .dot { animation-delay: 0.39s; }
+.bx-pipeline .txt { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.bx-pipeline .name { font-size: 13.5px; font-weight: 500; color: var(--ink); }
+.bx-pipeline .role { font-size: 12px; line-height: 1.45; color: var(--ink-3); }
+.bx-pipeline .why { font-size: 12px; line-height: 1.45; color: var(--ink-2); margin-top: 3px; }
+.bx-pipeline .why.veto { color: var(--sig-red); }
+.bx-pipeline .tag {
+  font-size: 11px; color: var(--ink-3); white-space: nowrap; margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.bx-pipeline .tag em { font-style: normal; }
+
+@keyframes bx-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(46,92,232,0.40); }
+  50% { transform: scale(1.35); box-shadow: 0 0 0 5px rgba(46,92,232,0); }
+}
+
+/* Compact agent status for the phone. */
+.m-pipeline {
+  display: flex; align-items: center; gap: 10px; padding: 11px 14px; margin-bottom: 16px;
+  background: #fdfcfa; border: 1px solid var(--line); border-radius: 14px;
+}
+.m-pipeline .txt { font-size: 12px; line-height: 1.4; color: var(--ink-2); }
+.m-pipeline .dots { display: flex; gap: 4px; flex-shrink: 0; }
+.m-pipeline .dots span {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--blue);
+  animation: bx-pulse 1.15s ease-in-out infinite;
+}
+.m-pipeline .dots span:nth-child(2) { animation-delay: 0.13s; }
+.m-pipeline .dots span:nth-child(3) { animation-delay: 0.26s; }
+.m-pipeline.done .dots span { background: var(--green); animation: none; box-shadow: none; }
 
 .bx-edit {
   width: 100%; resize: vertical; margin-top: 4px;
