@@ -4,31 +4,33 @@ import { useState } from "react";
 import Link from "next/link";
 import { boardingDuration } from "@/lib/evaluator";
 import type { PatientState } from "@/lib/types";
-import { BoardXMobile, useBoardX } from "./boardx-rail";
+import { BoardXRail, useBoardX } from "./boardx-rail";
 
 /**
  * The iOS surface — Abridge mobile with BoardX in the bottom tab bar.
  *
- * Split from the desktop route so each can be demoed on its own. Both drive the
- * same server-side patient state, so posting the panel or approving a draft on
- * one is reflected on the other after a reload.
+ * One phone, not two frames of one. The tab bar switches the view the way it
+ * would on a device, so the badge, the note, and the action layer are the same
+ * app rather than two pictures of it.
  *
- * The two frames are one phone in two tab states, matching the mockup: the
- * unchanged Clinical Note tab with the badge visible, and the BoardX tab
- * showing the action layer. The tab bar switches between them.
+ * The BoardX tab renders the *same* component as the desktop rail. It used to
+ * have a parallel implementation, which meant every change to a card had to be
+ * made twice — and the two had already drifted, the phone keeping its own
+ * inline-styled rows long after the desktop moved on.
  */
 export function MobileDemo({ initial }: { initial: PatientState }) {
   const [state, setState] = useState(initial);
-  const [tab, setTab] = useState<"note" | "bx">("bx");
+  const [tab, setTab] = useState<"note" | "pvs" | "bx">("bx");
   const actions = useBoardX(state, setState);
 
   const badge = state.signals.filter((s) => s.status === "needs-review").length;
+  const [first, last] = state.patient.name.split(" ");
 
   return (
     <div className="stage">
       <div className="patient-bar">
         <span className="who">
-          {surname(state)} <span className="age">{state.patient.age}F</span>
+          {last}, {first} <span className="age">{state.patient.age}F</span>
         </span>
         <span className="pill amber">Boarding {boardingDuration(state)}</span>
         <span className="pill">{state.patient.edBed}</span>
@@ -47,103 +49,128 @@ export function MobileDemo({ initial }: { initial: PatientState }) {
       </div>
 
       <div className="phones">
-        <Phone caption="Clinical Note tab — unchanged, BoardX badge visible">
-          <PhoneHead title="11:45 PM" subtitle="Unlabeled Encounter" />
-          <div className="m-scroll">
-            <MobileCard title="History of Present Illness">
-              {state.note.historyOfPresentIllness.slice(0, 2).map((p) => (
-                <p key={p}>{p}</p>
-              ))}
-            </MobileCard>
-            <MobileCard title="Past Medical History">
-              <ul>
-                {state.note.pastMedicalHistory.map((i) => (
-                  <li key={i}>{i}</li>
-                ))}
-              </ul>
-            </MobileCard>
-            <MobileCard title="Medications">
-              <ul>
-                {state.note.medications.map((m) => (
-                  <li key={m}>{m}</li>
-                ))}
-              </ul>
-            </MobileCard>
+        <div className="phone-wrap">
+          <div className="phone-cap">
+            {tab === "bx"
+              ? "BoardX tab — the action layer"
+              : tab === "pvs"
+                ? "Patient summary"
+                : "Clinical Note tab"}
           </div>
-          <MobileTabBar active="note" badge={badge} onSelect={setTab} />
-        </Phone>
+          <div className="phone">
+            <div className="screen">
+              <div className="statusbar">
+                12:47 <i className="ti ti-bell-off" style={{ fontSize: 13, marginLeft: 4 }} />
+                <div className="island" />
+                <div className="right">
+                  <i className="ti ti-antenna-bars-5" />
+                  <i className="ti ti-wifi" />
+                  <span className="batt">78</span>
+                </div>
+              </div>
 
-        <Phone caption="BoardX tab — the action layer">
-          <PhoneHead
-            title={`${surname(state)} · ${state.patient.age}F`}
-            subtitle={`ED 7 · Boarding ${boardingDuration(state)} · Medicine`}
-            small
-          />
-          <BoardXMobile state={state} actions={actions} />
-          <MobileTabBar active="bx" badge={badge} onSelect={setTab} />
-        </Phone>
-      </div>
+              <div className="app-head">
+                <div className="row1">
+                  <span className="back">
+                    <i className="ti ti-arrow-left" />
+                  </span>
+                  <div>
+                    <div className="time">
+                      {last}, {first} · {state.patient.age}F
+                    </div>
+                    <div className="enc" style={{ fontSize: 15 }}>
+                      {state.patient.edBed} · Boarding {boardingDuration(state)}
+                    </div>
+                  </div>
+                  <span className="kebab">
+                    <i className="ti ti-dots-vertical" />
+                  </span>
+                </div>
+                <hr />
+              </div>
 
-      {/* Kept live rather than decorative; the frames above show both states. */}
-      <span className="hidden">{tab}</span>
-    </div>
-  );
-}
+              {tab === "note" && <NoteTab state={state} />}
 
-function surname(state: PatientState) {
-  const [first, last] = state.patient.name.split(" ");
-  return `${last}, ${first}`;
-}
+              {tab === "pvs" && (
+                <div className="m-scroll">
+                  <div className="m-card">
+                    <p className="m-empty">
+                      The patient summary is unchanged by BoardX and is not part of this
+                      prototype.
+                    </p>
+                  </div>
+                </div>
+              )}
 
-function Phone({ caption, children }: { caption: string; children: React.ReactNode }) {
-  return (
-    <div className="phone-wrap">
-      <div className="phone-cap">{caption}</div>
-      <div className="phone">
-        <div className="screen">
-          <div className="statusbar">
-            12:47 <i className="ti ti-bell-off" style={{ fontSize: 13, marginLeft: 4 }} />
-            <div className="island" />
-            <div className="right">
-              <i className="ti ti-antenna-bars-5" />
-              <i className="ti ti-wifi" />
-              <span className="batt">78</span>
+              {tab === "bx" && (
+                <BoardXRail state={state} actions={actions} className="m-scroll bx-phone" />
+              )}
+
+              <div className="tabbar">
+                <button
+                  className={`tb ${tab === "note" ? "on" : ""}`}
+                  onClick={() => setTab("note")}
+                >
+                  <i className="ti ti-file-description" />
+                  <span>Clinical Note</span>
+                </button>
+                <button
+                  className={`tb ${tab === "pvs" ? "on" : ""}`}
+                  onClick={() => setTab("pvs")}
+                >
+                  <i className="ti ti-report-medical" />
+                  <span>PVS</span>
+                </button>
+                <button className={`tb ${tab === "bx" ? "on" : ""}`} onClick={() => setTab("bx")}>
+                  <i className="ti ti-clipboard-heart" />
+                  <span>BoardX</span>
+                  {badge > 0 && <span className="dot">{badge}</span>}
+                </button>
+              </div>
+
+              <div className="homebar" />
             </div>
           </div>
-          {children}
-          <div className="homebar" />
         </div>
       </div>
     </div>
   );
 }
 
-function PhoneHead({
-  title,
-  subtitle,
-  small = false,
-}: {
-  title: string;
-  subtitle: string;
-  small?: boolean;
-}) {
+/** The same sections the desktop note panel carries, in the phone's card shape. */
+function NoteTab({ state }: { state: PatientState }) {
+  const { note } = state;
   return (
-    <div className="app-head">
-      <div className="row1">
-        <span className="back">
-          <i className="ti ti-arrow-left" />
-        </span>
-        <div>
-          <div className="time">{title}</div>
-          <div className="enc" style={small ? { fontSize: 15 } : undefined}>
-            {subtitle}
-          </div>
-        </div>
-        <span className="kebab">
-          <i className="ti ti-dots-vertical" />
-        </span>
-      </div>
-      <hr />
+    <div className="m-scroll">
+      <MobileCard title="History of Present Illness">
+        {note.historyOfPresentIllness.map((p) => (
+          <p key={p}>{p}</p>
+        ))}
+      </MobileCard>
+      <MobileCard title="Past Medical History">
+        <ul>
+          {note.pastMedicalHistory.map((i) => (
+            <li key={i}>{i}</li>
+          ))}
+        </ul>
+      </MobileCard>
+      <MobileCard title="Medications">
+        <ul>
+          {note.medications.map((m) => (
+            <li key={m}>{m}</li>
+          ))}
+        </ul>
+      </MobileCard>
+      <MobileCard title="Allergies">
+        <ul>
+          {note.allergies.map((a) => (
+            <li key={a}>{a}</li>
+          ))}
+        </ul>
+      </MobileCard>
+      <MobileCard title="Results">
+        <p>{note.results}</p>
+      </MobileCard>
     </div>
   );
 }
@@ -159,34 +186,6 @@ function MobileCard({ title, children }: { title: string; children: React.ReactN
       </div>
       <hr />
       {children}
-    </div>
-  );
-}
-
-function MobileTabBar({
-  active,
-  badge,
-  onSelect,
-}: {
-  active: "note" | "bx";
-  badge: number;
-  onSelect: (t: "note" | "bx") => void;
-}) {
-  return (
-    <div className="tabbar">
-      <button className={`tb ${active === "note" ? "on" : ""}`} onClick={() => onSelect("note")}>
-        <i className="ti ti-file-description" />
-        <span>Clinical Note</span>
-      </button>
-      <button className="tb">
-        <i className="ti ti-report-medical" />
-        <span>PVS</span>
-      </button>
-      <button className={`tb ${active === "bx" ? "on" : ""}`} onClick={() => onSelect("bx")}>
-        <i className="ti ti-clipboard-heart" />
-        <span>BoardX</span>
-        {badge > 0 && <span className="dot">{badge}</span>}
-      </button>
     </div>
   );
 }

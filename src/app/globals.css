@@ -946,3 +946,48 @@ a.ops-chartlink:hover i { color: var(--blue); opacity: 1; }
 /* Land the board's chart links with the HPI heading visible, not flush under
    the panel edge. */
 .sec[id] { scroll-margin-top: 14px; }
+
+/* ============ BOARDX ON THE PHONE ============
+   The phone runs the desktop rail's components, scaled to a 310px screen. Same
+   tree, same states, one implementation — the mobile view used to be a parallel
+   copy and the two drifted. */
+
+.bx-phone { padding: 14px 12px 8px; }
+.bx-phone .bx-stepper { padding: 8px 11px; margin-bottom: 12px; gap: 8px; }
+.bx-phone .bx-stepper .state { font-size: 11.5px; }
+.bx-phone .bx-step-fwd { width: 24px; height: 24px; }
+.bx-phone .bx-step-fwd i { font-size: 12px; }
+.bx-phone .bx-stepper-reset { font-size: 11px; }
+
+.bx-phone .bx-brief { padding: 12px 14px; margin-bottom: 12px; }
+.bx-phone .bx-brief .lbl { font-size: 10.5px; margin-bottom: 8px; }
+.bx-phone .bx-brief dt { font-size: 10px; }
+.bx-phone .bx-brief dd { font-size: 12.5px; margin-bottom: 8px; }
+
+.bx-phone .bx-signal { margin-bottom: 12px; border-radius: 12px; }
+.bx-phone .bx-signal-h { padding: 10px 14px; font-size: 13px; gap: 7px; }
+.bx-phone .bx-signal-h time { font-size: 11.5px; }
+.bx-phone .bx-signal-b { padding: 13px 14px; }
+.bx-phone .bx-signal-b > p { font-size: 12.5px; line-height: 1.5; margin-bottom: 12px; }
+.bx-phone .bx-ev { gap: 5px; margin-bottom: 12px; }
+.bx-phone .bx-ev span { font-size: 10.5px; padding: 4px 9px; }
+.bx-phone .bx-autosent { font-size: 11.5px; padding: 8px 10px; }
+.bx-phone .bx-nonprescriptive { font-size: 11.5px; flex-basis: 100%; }
+.bx-phone .bx-actions { gap: 7px; }
+.bx-phone .bx-actions .pill-dark,
+.bx-phone .bx-actions .pill-outline { font-size: 12.5px; padding: 9px 16px; }
+.bx-phone .bx-actions .ghost { font-size: 12.5px; padding: 9px 8px; }
+
+.bx-phone .bx-collapsed { padding: 8px 11px; gap: 8px; }
+.bx-phone .bx-collapsed .txt b { font-size: 12px; }
+.bx-phone .bx-collapsed .txt .sub { font-size: 10.5px; }
+.bx-phone .bx-collapsed time { font-size: 11px; }
+
+.bx-phone .bx-outcome { padding: 12px 14px; margin-bottom: 12px; }
+.bx-phone .bx-outcome .handoff { font-size: 11.5px; }
+.bx-phone .bx-quiet { font-size: 11px; }
+.bx-phone .bx-draft { padding: 11px 13px; }
+.bx-phone .bx-draft p { font-size: 12.5px; }
+
+/* Evidence drawer would cover the whole phone; keep it full-screen there. */
+.m-empty { font-size: 13px; color: var(--ink-3); line-height: 1.6; margin: 0; }
